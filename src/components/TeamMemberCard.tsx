@@ -67,7 +67,13 @@ export default function TeamMemberCard({ member, onEdit }: TeamMemberCardProps) 
 
       <div className="mt-4 pt-4 border-t border-gray-50">
         <p className="text-xs text-gray-400">
-          Last updated: {new Date(member.lastUpdated).toLocaleDateString()}
+          Last updated: {new Date(member.lastUpdated).toLocaleString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          })}
         </p>
       </div>
     </div>

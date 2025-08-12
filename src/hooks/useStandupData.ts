@@ -104,11 +104,6 @@ export function useStandupData() {
         created_at: member.standup_updates[0]?.created_at || null
       })) || [];
 
-      
-
-
-  
-
       setTeamMembers(membersWithUpdates);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch standup data');
