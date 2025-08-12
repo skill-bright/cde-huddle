@@ -19,6 +19,8 @@ const getYesterdayDate = () => {
   });
 };
 
+
+
 // Helper function to get the start of current week (Monday) in Vancouver timezone
 const getWeekStartDate = () => {
   const today = new Date();
@@ -126,13 +128,20 @@ export function useStandupData() {
         .lt('created_at', `${yesterday}T23:59:59-08:00`);
 
       if (yesterdayEntries && yesterdayEntries.length > 0) {
-        // Count updates for yesterday's entry
-        const { count } = await supabase
+        // Get the actual updates to see what's there
+        const { data: updates } = await supabase
           .from('standup_updates')
-          .select('*', { count: 'exact', head: true })
+          .select('*')
           .eq('standup_entry_id', yesterdayEntries[0].id);
 
-        setYesterdayCount(count || 0);
+        // Filter updates to only include those created yesterday
+        const yesterdayUpdates = updates?.filter(update => {
+          // Extract just the date part from the timestamp (YYYY-MM-DD)
+          const updateDateStr = update.created_at.split('T')[0];
+          return updateDateStr === yesterday;
+        }) || [];
+
+        setYesterdayCount(yesterdayUpdates.length);
       } else {
         setYesterdayCount(0);
       }
@@ -197,7 +206,7 @@ export function useStandupData() {
       const history: StandupEntry[] = entries?.map(entry => {
         // Filter updates to only include those created on the same date as the entry
         const entryDate = new Date(entry.date);
-        const filteredUpdates = entry.standup_updates.filter((update: any) => {
+        const filteredUpdates = entry.standup_updates.filter((update: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
           const updateDate = new Date(update.created_at);
           return updateDate.toDateString() === entryDate.toDateString();
         });
