@@ -8,6 +8,8 @@ interface TeamMemberCardProps {
 }
 
 export default function TeamMemberCard({ member, onEdit }: TeamMemberCardProps) {
+
+  
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-all duration-300 hover:scale-[1.02]">
       <div className="flex items-center gap-4 mb-4">
@@ -34,9 +36,10 @@ export default function TeamMemberCard({ member, onEdit }: TeamMemberCardProps) 
               {getPreviousBusinessDay() === 'Friday' ? 'Friday' : 'Yesterday'}
             </h4>
           </div>
-          <p className="text-gray-600 text-sm leading-relaxed pl-6">
-            {member.yesterday || "No updates yet"}
-          </p>
+          <div 
+            className="text-gray-600 text-sm leading-relaxed pl-6 prose prose-sm max-w-none"
+            dangerouslySetInnerHTML={{ __html: member.yesterday || "No updates yet" }}
+          />
         </div>
 
         <div className="group">
@@ -44,9 +47,10 @@ export default function TeamMemberCard({ member, onEdit }: TeamMemberCardProps) 
             <CheckCircle size={16} className="text-blue-500" />
             <h4 className="font-medium text-gray-700 text-sm">Today</h4>
           </div>
-          <p className="text-gray-600 text-sm leading-relaxed pl-6">
-            {member.today || "No plans yet"}
-          </p>
+          <div 
+            className="text-gray-600 text-sm leading-relaxed pl-6 prose prose-sm max-w-none"
+            dangerouslySetInnerHTML={{ __html: member.today || "No plans yet" }}
+          />
         </div>
 
         <div className="group">
@@ -54,9 +58,10 @@ export default function TeamMemberCard({ member, onEdit }: TeamMemberCardProps) 
             <AlertTriangle size={16} className="text-orange-500" />
             <h4 className="font-medium text-gray-700 text-sm">Blockers</h4>
           </div>
-          <p className="text-gray-600 text-sm leading-relaxed pl-6">
-            {member.blockers || "No blockers"}
-          </p>
+          <div 
+            className="text-gray-600 text-sm leading-relaxed pl-6 prose prose-sm max-w-none"
+            dangerouslySetInnerHTML={{ __html: member.blockers || "No blockers" }}
+          />
         </div>
       </div>
 

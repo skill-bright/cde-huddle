@@ -1,13 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { X, Save, Loader2, GripVertical } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { X, Save, Loader2 } from 'lucide-react';
 import { TeamMember } from '../types';
 import { getPreviousBusinessDayLabel, getTodayPlanLabel } from '../utils/dateUtils';
+import RichTextEditor from './RichTextEditor';
 
 // Predefined team members - you can modify this list
 const TEAM_MEMBERS = [
   { id: '1', name: 'Ibrahim', role: 'Boss' },
   { id: '2', name: 'Aurelio', role: 'Developer' },
-  { id: '3', name: 'Francois Polo', role: 'Developer' },
+  { id: '3', name: 'Francois', role: 'Developer' },
   { id: '4', name: 'Isik', role: 'PR' },
   { id: '5', name: 'Atena', role: 'Developer' },
 ];
@@ -20,7 +21,29 @@ interface AddUpdateModalProps {
   saving?: boolean;
 }
 
-export default function AddUpdateModal({ isOpen, onClose, onSave, member, saving = false }: AddUpdateModalProps) {
+// Rich text editor component wrapper - moved outside to prevent recreation
+const RichTextArea = React.memo(({ 
+  value, 
+  onChange, 
+  placeholder, 
+  minHeight = '120px'
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  minHeight?: string;
+}) => {
+  return (
+    <RichTextEditor
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      minHeight={minHeight}
+    />
+  );
+});
+
+const AddUpdateModal = React.memo(function AddUpdateModal({ isOpen, onClose, onSave, member, saving = false }: AddUpdateModalProps) {
   const [formData, setFormData] = useState({
     name: '',
     role: '',
@@ -29,85 +52,26 @@ export default function AddUpdateModal({ isOpen, onClose, onSave, member, saving
     blockers: ''
   });
 
-  const handleNameChange = (selectedName: string) => {
+  const handleNameChange = useCallback((selectedName: string) => {
     const selectedMember = TEAM_MEMBERS.find(member => member.name === selectedName);
-    setFormData({
-      ...formData,
+    setFormData(prev => ({
+      ...prev,
       name: selectedName,
       role: selectedMember?.role || ''
-    });
-  };
+    }));
+  }, []);
 
-  // Resizable textarea component
-  const ResizableTextarea = ({ 
-    value, 
-    onChange, 
-    placeholder, 
-    minRows = 3, 
-    maxRows = 10 
-  }: {
-    value: string;
-    onChange: (value: string) => void;
-    placeholder: string;
-    minRows?: number;
-    maxRows?: number;
-  }) => {
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
-    const [isResizing, setIsResizing] = useState(false);
+  const handleYesterdayChange = useCallback((value: string) => {
+    setFormData(prev => ({ ...prev, yesterday: value }));
+  }, []);
 
-    const handleMouseDown = (e: React.MouseEvent) => {
-      e.preventDefault();
-      setIsResizing(true);
-    };
+  const handleTodayChange = useCallback((value: string) => {
+    setFormData(prev => ({ ...prev, today: value }));
+  }, []);
 
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isResizing || !textareaRef.current) return;
-      
-      const rect = textareaRef.current.getBoundingClientRect();
-      const newHeight = e.clientY - rect.top;
-      const minHeight = minRows * 24; // Approximate line height
-      const maxHeight = maxRows * 24;
-      
-      if (newHeight >= minHeight && newHeight <= maxHeight) {
-        textareaRef.current.style.height = `${newHeight}px`;
-      }
-    };
-
-    const handleMouseUp = () => {
-      setIsResizing(false);
-    };
-
-    useEffect(() => {
-      if (isResizing) {
-        document.addEventListener('mousemove', handleMouseMove);
-        document.addEventListener('mouseup', handleMouseUp);
-        return () => {
-          document.removeEventListener('mousemove', handleMouseMove);
-          document.removeEventListener('mouseup', handleMouseUp);
-        };
-      }
-    }, [isResizing]);
-
-    return (
-      <div className="relative">
-        <textarea
-          ref={textareaRef}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          rows={minRows}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none"
-          style={{ minHeight: `${minRows * 24}px` }}
-        />
-        <div
-          className="absolute bottom-1 right-1 cursor-ns-resize p-1 hover:bg-gray-100 rounded transition-colors duration-200"
-          onMouseDown={handleMouseDown}
-        >
-          <GripVertical size={12} className="text-gray-400" />
-        </div>
-      </div>
-    );
-  };
+  const handleBlockersChange = useCallback((value: string) => {
+    setFormData(prev => ({ ...prev, blockers: value }));
+  }, []);
 
   useEffect(() => {
     if (member) {
@@ -127,9 +91,9 @@ export default function AddUpdateModal({ isOpen, onClose, onSave, member, saving
         blockers: ''
       });
     }
-  }, [member, isOpen]);
+  }, [member?.id, isOpen]); // Only depend on member ID, not the entire member object
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     const updatedMember: TeamMember = {
       id: member?.id || crypto.randomUUID(),
@@ -141,8 +105,20 @@ export default function AddUpdateModal({ isOpen, onClose, onSave, member, saving
       blockers: formData.blockers,
       lastUpdated: new Date().toISOString()
     };
-    onSave(updatedMember);
-  };
+    
+    try {
+      await onSave(updatedMember);
+      // Close modal after successful save
+      onClose();
+    } catch (error) {
+      // Error handling is done in the parent component
+      console.error('Failed to save member:', error);
+    }
+  }, [formData, member?.id, onSave, onClose]);
+
+  const handleClose = useCallback(() => {
+    onClose();
+  }, [onClose]);
 
   if (!isOpen) return null;
 
@@ -154,7 +130,7 @@ export default function AddUpdateModal({ isOpen, onClose, onSave, member, saving
             {member ? 'Edit My Update' : 'Add My Update'}
           </h2>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
           >
             <X size={20} className="text-gray-500" />
@@ -201,12 +177,11 @@ export default function AddUpdateModal({ isOpen, onClose, onSave, member, saving
             <label className="block text-sm font-medium text-gray-700 mb-2">
               {getPreviousBusinessDayLabel()}
             </label>
-            <ResizableTextarea
+            <RichTextArea
               value={formData.yesterday}
-              onChange={(value) => setFormData({ ...formData, yesterday: value })}
+              onChange={handleYesterdayChange}
               placeholder={`Describe your accomplishments from ${getPreviousBusinessDayLabel().includes('Friday') ? 'Friday' : 'yesterday'}...`}
-              minRows={3}
-              maxRows={8}
+              minHeight="180px"
             />
           </div>
 
@@ -214,12 +189,11 @@ export default function AddUpdateModal({ isOpen, onClose, onSave, member, saving
             <label className="block text-sm font-medium text-gray-700 mb-2">
               {getTodayPlanLabel()}
             </label>
-            <ResizableTextarea
+            <RichTextArea
               value={formData.today}
-              onChange={(value) => setFormData({ ...formData, today: value })}
+              onChange={handleTodayChange}
               placeholder="Describe your plans for today..."
-              minRows={3}
-              maxRows={8}
+              minHeight="180px"
             />
           </div>
 
@@ -227,19 +201,18 @@ export default function AddUpdateModal({ isOpen, onClose, onSave, member, saving
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Any blockers or challenges?
             </label>
-            <ResizableTextarea
+            <RichTextArea
               value={formData.blockers}
-              onChange={(value) => setFormData({ ...formData, blockers: value })}
+              onChange={handleBlockersChange}
               placeholder="Any obstacles or challenges you're facing..."
-              minRows={2}
-              maxRows={6}
+              minHeight="180px"
             />
           </div>
 
           <div className="flex gap-3 pt-4">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="flex-1 px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200"
               disabled={saving}
             >
@@ -267,4 +240,6 @@ export default function AddUpdateModal({ isOpen, onClose, onSave, member, saving
       </div>
     </div>
   );
-}
+});
+
+export default AddUpdateModal;

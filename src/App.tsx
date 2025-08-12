@@ -1,4 +1,3 @@
-import React from 'react';
 import StandupDashboard from './components/StandupDashboard';
 
 function App() {

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Calendar, ChevronDown, ChevronRight, Users, CheckCircle, AlertTriangle } from 'lucide-react';
 import { StandupEntry } from '../types';
@@ -8,7 +9,7 @@ interface StandupHistoryProps {
   onToggle: () => void;
 }
 
-export default function StandupHistory({ history, isOpen, onToggle }: StandupHistoryProps) {
+export default function StandupHistory({ history, isOpen }: StandupHistoryProps) {
   const [expandedEntry, setExpandedEntry] = React.useState<string | null>(null);
 
   const toggleEntry = (entryId: string) => {
@@ -21,6 +22,16 @@ export default function StandupHistory({ history, isOpen, onToggle }: StandupHis
       year: 'numeric',
       month: 'long',
       day: 'numeric'
+    });
+  };
+
+  const formatCreationDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     });
   };
 
@@ -83,27 +94,41 @@ export default function StandupHistory({ history, isOpen, onToggle }: StandupHis
                           </div>
                         </div>
 
-                        <div className="space-y-2 text-sm">
-                          <div className="flex items-start gap-2">
-                            <CheckCircle size={14} className="text-green-500 mt-0.5 flex-shrink-0" />
-                            <div>
-                              <span className="font-medium text-gray-700">Previous day: </span>
-                              <span className="text-gray-600">{member.yesterday || "No updates"}</span>
+                        <div className="space-y-3 text-sm">
+                          <div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <CheckCircle size={14} className="text-green-500" />
+                              <span className="font-medium text-gray-700">Previous day:</span>
                             </div>
+                            <div 
+                              className="text-gray-600 pl-6 prose prose-sm max-w-none"
+                              dangerouslySetInnerHTML={{ __html: member.yesterday || "No updates" }}
+                            />
                           </div>
-                          <div className="flex items-start gap-2">
-                            <CheckCircle size={14} className="text-blue-500 mt-0.5 flex-shrink-0" />
-                            <div>
-                              <span className="font-medium text-gray-700">Today: </span>
-                              <span className="text-gray-600">{member.today || "No plans"}</span>
+                          <div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <CheckCircle size={14} className="text-blue-500" />
+                              <span className="font-medium text-gray-700">Today:</span>
                             </div>
+                            <div 
+                              className="text-gray-600 pl-6 prose prose-sm max-w-none"
+                              dangerouslySetInnerHTML={{ __html: member.today || "No plans" }}
+                            />
                           </div>
-                          <div className="flex items-start gap-2">
-                            <AlertTriangle size={14} className="text-orange-500 mt-0.5 flex-shrink-0" />
-                            <div>
-                              <span className="font-medium text-gray-700">Blockers: </span>
-                              <span className="text-gray-600">{member.blockers || "No blockers"}</span>
+                          <div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <AlertTriangle size={14} className="text-orange-500" />
+                              <span className="font-medium text-gray-700">Blockers:</span>
                             </div>
+                            <div 
+                              className="text-gray-600 pl-6 prose prose-sm max-w-none"
+                              dangerouslySetInnerHTML={{ __html: member.blockers || "No blockers" }}
+                            />
+                          </div>
+                          <div className="pt-2 border-t border-gray-200">
+                            <p className="text-xs text-gray-400">
+                              Submitted {formatCreationDate(member.lastUpdated)}
+                            </p>
                           </div>
                         </div>
                       </div>

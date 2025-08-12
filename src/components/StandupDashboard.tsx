@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Plus, Users, Calendar, Target, AlertTriangle, History, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { useState, useCallback } from 'react';
+import { Plus, Users, Calendar, Target, History, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import TeamMemberCard from './TeamMemberCard';
 import AddUpdateModal from './AddUpdateModal';
 import StandupHistory from './StandupHistory';
@@ -8,14 +8,14 @@ import { useStandupData } from '../hooks/useStandupData';
 import { getPreviousBusinessDay } from '../utils/dateUtils';
 
 export default function StandupDashboard() {
-  const { teamMembers, standupHistory, loading, error, saveMember, refreshData } = useStandupData();
+  const { teamMembers, standupHistory, yesterdayCount, teamEngagement, loading, error, saveMember, refreshData } = useStandupData();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<TeamMember | undefined>();
   const [showHistory, setShowHistory] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const handleSaveMember = async (member: TeamMember) => {
+  const handleSaveMember = useCallback(async (member: TeamMember) => {
     setSaving(true);
     try {
       await saveMember(member);
@@ -25,17 +25,21 @@ export default function StandupDashboard() {
     } finally {
       setSaving(false);
     }
-  };
+  }, [saveMember]);
 
-  const handleEditMember = (member: TeamMember) => {
+  const handleEditMember = useCallback((member: TeamMember) => {
     setEditingMember(member);
     setIsModalOpen(true);
-  };
+  }, []);
 
-  const handleAddMember = () => {
+  const handleAddMember = useCallback(() => {
     setEditingMember(undefined);
     setIsModalOpen(true);
-  };
+  }, []);
+
+  const handleCloseModal = useCallback(() => {
+    setIsModalOpen(false);
+  }, []);
 
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
@@ -43,6 +47,9 @@ export default function StandupDashboard() {
     month: 'long',
     day: 'numeric'
   });
+
+  // Debug logging
+
 
   if (loading) {
     return (
@@ -97,7 +104,7 @@ export default function StandupDashboard() {
                 <Users size={20} className="text-blue-600" />
               </div>
               <div>
-                <p className="text-sm text-gray-500">Team Members</p>
+                <p className="text-sm text-gray-500">Updates Today</p>
                 <p className="text-xl font-semibold text-gray-900">{teamMembers.length}</p>
               </div>
             </div>
@@ -113,7 +120,7 @@ export default function StandupDashboard() {
                   {getPreviousBusinessDay() === 'Friday' ? 'Friday Updates' : 'Yesterday Updates'}
                 </p>
                 <p className="text-xl font-semibold text-gray-900">
-                  {teamMembers.filter(m => m.yesterday).length}
+                  {yesterdayCount}
                 </p>
               </div>
             </div>
@@ -121,13 +128,13 @@ export default function StandupDashboard() {
 
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-                <AlertTriangle size={20} className="text-red-600" />
+              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                <Users size={20} className="text-purple-600" />
               </div>
               <div>
-                <p className="text-sm text-gray-500">Blockers</p>
+                <p className="text-sm text-gray-500">Team Engagement</p>
                 <p className="text-xl font-semibold text-gray-900">
-                  {teamMembers.filter(m => m.blockers && m.blockers !== 'No blockers').length}
+                  {teamEngagement}
                 </p>
               </div>
             </div>
@@ -194,7 +201,7 @@ export default function StandupDashboard() {
 
       <AddUpdateModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={handleCloseModal}
         onSave={handleSaveMember}
         member={editingMember}
         saving={saving}
