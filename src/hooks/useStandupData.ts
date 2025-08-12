@@ -14,13 +14,18 @@ export function useStandupData() {
       const today = new Date().toISOString().split('T')[0];
       
       // Get or create today's standup entry
-      let { data: standupEntry, error: entryError } = await supabase
+      let { data: standupEntries, error: entryError } = await supabase
         .from('standup_entries')
         .select('*')
-        .eq('date', today)
-        .single();
+        .eq('date', today);
 
-      if (entryError && entryError.code === 'PGRST116') {
+      if (entryError) {
+        throw entryError;
+      }
+
+      let standupEntry = standupEntries?.[0];
+
+      if (!standupEntry) {
         // Create today's entry if it doesn't exist
         const { data: newEntry, error: createError } = await supabase
           .from('standup_entries')
@@ -30,8 +35,6 @@ export function useStandupData() {
         
         if (createError) throw createError;
         standupEntry = newEntry;
-      } else if (entryError) {
-        throw entryError;
       }
 
       // Fetch all team members with their updates for today
@@ -108,7 +111,7 @@ export function useStandupData() {
       const history: StandupEntry[] = entries?.map(entry => ({
         id: entry.id,
         date: entry.date,
-        teamMembers: entry.standup_updates.map(update => ({
+        teamMembers: entry.standup_updates.map((update: any) => ({
           id: update.team_members.id,
           name: update.team_members.name,
           role: update.team_members.role,
@@ -133,13 +136,18 @@ export function useStandupData() {
       const today = new Date().toISOString().split('T')[0];
       
       // Get or create today's standup entry
-      let { data: standupEntry, error: entryError } = await supabase
+      let { data: standupEntries, error: entryError } = await supabase
         .from('standup_entries')
         .select('*')
-        .eq('date', today)
-        .single();
+        .eq('date', today);
 
-      if (entryError && entryError.code === 'PGRST116') {
+      if (entryError) {
+        throw entryError;
+      }
+
+      let standupEntry = standupEntries?.[0];
+
+      if (!standupEntry) {
         const { data: newEntry, error: createError } = await supabase
           .from('standup_entries')
           .insert({ date: today })
@@ -148,16 +156,15 @@ export function useStandupData() {
         
         if (createError) throw createError;
         standupEntry = newEntry;
-      } else if (entryError) {
-        throw entryError;
       }
 
       // Check if team member exists
-      const { data: existingMember } = await supabase
+      const { data: existingMembers } = await supabase
         .from('team_members')
         .select('*')
-        .eq('id', member.id)
-        .single();
+        .eq('id', member.id);
+      
+      const existingMember = existingMembers?.[0];
 
       if (!existingMember) {
         // Create new team member

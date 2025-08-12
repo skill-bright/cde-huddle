@@ -1,5 +1,4 @@
-import React from 'react';
-import { User, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Edit, AlertTriangle, CheckCircle } from 'lucide-react';
 import { TeamMember } from '../types';
 import { getPreviousBusinessDay } from '../utils/dateUtils';
 
@@ -23,7 +22,7 @@ export default function TeamMemberCard({ member, onEdit }: TeamMemberCardProps) 
           onClick={() => onEdit(member)}
           className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
         >
-          <User size={18} className="text-gray-400" />
+          <Edit size={18} className="text-gray-400" />
         </button>
       </div>
 

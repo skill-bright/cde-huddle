@@ -1,7 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { X, Save, Loader2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Save, Loader2, GripVertical } from 'lucide-react';
 import { TeamMember } from '../types';
 import { getPreviousBusinessDayLabel, getTodayPlanLabel } from '../utils/dateUtils';
+
+// Predefined team members - you can modify this list
+const TEAM_MEMBERS = [
+  { id: '1', name: 'Ibrahim', role: 'Boss' },
+  { id: '2', name: 'Aurelio', role: 'Developer' },
+  { id: '3', name: 'Francois Polo', role: 'Developer' },
+  { id: '4', name: 'Isik', role: 'PR' },
+  { id: '5', name: 'Atena', role: 'Developer' },
+];
 
 interface AddUpdateModalProps {
   isOpen: boolean;
@@ -19,6 +28,86 @@ export default function AddUpdateModal({ isOpen, onClose, onSave, member, saving
     today: '',
     blockers: ''
   });
+
+  const handleNameChange = (selectedName: string) => {
+    const selectedMember = TEAM_MEMBERS.find(member => member.name === selectedName);
+    setFormData({
+      ...formData,
+      name: selectedName,
+      role: selectedMember?.role || ''
+    });
+  };
+
+  // Resizable textarea component
+  const ResizableTextarea = ({ 
+    value, 
+    onChange, 
+    placeholder, 
+    minRows = 3, 
+    maxRows = 10 
+  }: {
+    value: string;
+    onChange: (value: string) => void;
+    placeholder: string;
+    minRows?: number;
+    maxRows?: number;
+  }) => {
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const [isResizing, setIsResizing] = useState(false);
+
+    const handleMouseDown = (e: React.MouseEvent) => {
+      e.preventDefault();
+      setIsResizing(true);
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing || !textareaRef.current) return;
+      
+      const rect = textareaRef.current.getBoundingClientRect();
+      const newHeight = e.clientY - rect.top;
+      const minHeight = minRows * 24; // Approximate line height
+      const maxHeight = maxRows * 24;
+      
+      if (newHeight >= minHeight && newHeight <= maxHeight) {
+        textareaRef.current.style.height = `${newHeight}px`;
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    useEffect(() => {
+      if (isResizing) {
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+        return () => {
+          document.removeEventListener('mousemove', handleMouseMove);
+          document.removeEventListener('mouseup', handleMouseUp);
+        };
+      }
+    }, [isResizing]);
+
+    return (
+      <div className="relative">
+        <textarea
+          ref={textareaRef}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          rows={minRows}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none"
+          style={{ minHeight: `${minRows * 24}px` }}
+        />
+        <div
+          className="absolute bottom-1 right-1 cursor-ns-resize p-1 hover:bg-gray-100 rounded transition-colors duration-200"
+          onMouseDown={handleMouseDown}
+        >
+          <GripVertical size={12} className="text-gray-400" />
+        </div>
+      </div>
+    );
+  };
 
   useEffect(() => {
     if (member) {
@@ -43,7 +132,7 @@ export default function AddUpdateModal({ isOpen, onClose, onSave, member, saving
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const updatedMember: TeamMember = {
-      id: member?.id || Date.now().toString(),
+      id: member?.id || crypto.randomUUID(),
       name: formData.name,
       role: formData.role,
       avatar: '',
@@ -78,13 +167,19 @@ export default function AddUpdateModal({ isOpen, onClose, onSave, member, saving
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Name
               </label>
-              <input
-                type="text"
+              <select
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) => handleNameChange(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                 required
-              />
+              >
+                <option value="">Select your name...</option>
+                {TEAM_MEMBERS.map((member) => (
+                  <option key={member.id} value={member.name}>
+                    {member.name}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -94,8 +189,10 @@ export default function AddUpdateModal({ isOpen, onClose, onSave, member, saving
                 type="text"
                 value={formData.role}
                 onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50"
                 required
+                readOnly
+                placeholder="Auto-filled when name is selected"
               />
             </div>
           </div>
@@ -104,12 +201,12 @@ export default function AddUpdateModal({ isOpen, onClose, onSave, member, saving
             <label className="block text-sm font-medium text-gray-700 mb-2">
               {getPreviousBusinessDayLabel()}
             </label>
-            <textarea
+            <ResizableTextarea
               value={formData.yesterday}
-              onChange={(e) => setFormData({ ...formData, yesterday: e.target.value })}
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none"
+              onChange={(value) => setFormData({ ...formData, yesterday: value })}
               placeholder={`Describe your accomplishments from ${getPreviousBusinessDayLabel().includes('Friday') ? 'Friday' : 'yesterday'}...`}
+              minRows={3}
+              maxRows={8}
             />
           </div>
 
@@ -117,12 +214,12 @@ export default function AddUpdateModal({ isOpen, onClose, onSave, member, saving
             <label className="block text-sm font-medium text-gray-700 mb-2">
               {getTodayPlanLabel()}
             </label>
-            <textarea
+            <ResizableTextarea
               value={formData.today}
-              onChange={(e) => setFormData({ ...formData, today: e.target.value })}
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none"
+              onChange={(value) => setFormData({ ...formData, today: value })}
               placeholder="Describe your plans for today..."
+              minRows={3}
+              maxRows={8}
             />
           </div>
 
@@ -130,12 +227,12 @@ export default function AddUpdateModal({ isOpen, onClose, onSave, member, saving
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Any blockers or challenges?
             </label>
-            <textarea
+            <ResizableTextarea
               value={formData.blockers}
-              onChange={(e) => setFormData({ ...formData, blockers: e.target.value })}
-              rows={2}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none"
+              onChange={(value) => setFormData({ ...formData, blockers: value })}
               placeholder="Any obstacles or challenges you're facing..."
+              minRows={2}
+              maxRows={6}
             />
           </div>
 
