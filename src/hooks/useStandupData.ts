@@ -2,38 +2,133 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { TeamMember, StandupEntry } from '../types';
 
-// Helper function to get today's date in Vancouver timezone
-const getVancouverDate = () => {
-  return new Date().toLocaleDateString('en-CA', {
-    timeZone: 'America/Vancouver'
+// ============================================================================
+// DATE UTILITIES
+// ============================================================================
+
+const VANCOUVER_TIMEZONE = 'America/Vancouver';
+
+/**
+ * Get a date in Vancouver timezone as YYYY-MM-DD string
+ */
+const getVancouverDate = (date: Date = new Date()) => {
+  return date.toLocaleDateString('en-CA', {
+    timeZone: VANCOUVER_TIMEZONE
   });
 };
 
-// Helper function to get yesterday's date in Vancouver timezone
-const getYesterdayDate = () => {
+/**
+ * Get the previous business day date
+ * - Monday → Friday (3 days back)
+ * - Sunday → Friday (2 days back) 
+ * - Other days → Yesterday (1 day back)
+ */
+const getPreviousBusinessDay = () => {
   const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-  return yesterday.toLocaleDateString('en-CA', {
-    timeZone: 'America/Vancouver'
-  });
+  const dayOfWeek = today.getDay();
+  
+  let targetDate: Date;
+  
+  if (dayOfWeek === 1) { // Monday
+    targetDate = new Date(today);
+    targetDate.setDate(today.getDate() - 3);
+  } else if (dayOfWeek === 0) { // Sunday
+    targetDate = new Date(today);
+    targetDate.setDate(today.getDate() - 2);
+  } else { // Tuesday through Saturday
+    targetDate = new Date(today);
+    targetDate.setDate(today.getDate() - 1);
+  }
+  
+  return getVancouverDate(targetDate);
 };
 
-
-
-// Helper function to get the start of current week (Monday) in Vancouver timezone
+/**
+ * Get the start of current week (Monday) in Vancouver timezone
+ */
 const getWeekStartDate = () => {
   const today = new Date();
-  const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
-  const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Days to go back to Monday
-
+  const dayOfWeek = today.getDay();
+  const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  
   const monday = new Date(today);
   monday.setDate(today.getDate() - daysToMonday);
-
-  return monday.toLocaleDateString('en-CA', {
-    timeZone: 'America/Vancouver'
-  });
+  
+  return getVancouverDate(monday);
 };
+
+/**
+ * Extract date part (YYYY-MM-DD) from a timestamp string
+ */
+const extractDateFromTimestamp = (timestamp: string) => {
+  return timestamp.split('T')[0];
+};
+
+// ============================================================================
+// DATABASE UTILITIES
+// ============================================================================
+
+/**
+ * Get or create a standup entry for a specific date
+ */
+const getOrCreateStandupEntry = async (date: string) => {
+  const { data: entries, error: entryError } = await supabase
+    .from('standup_entries')
+    .select('*')
+    .eq('date', date);
+
+  if (entryError) throw entryError;
+
+  let standupEntry = entries?.[0];
+
+  if (!standupEntry) {
+    const { data: newEntry, error: createError } = await supabase
+      .from('standup_entries')
+      .insert({ date })
+      .select()
+      .single();
+
+    if (createError) throw createError;
+    standupEntry = newEntry;
+  }
+
+  return standupEntry;
+};
+
+/**
+ * Transform database update to TeamMember format
+ */
+const transformUpdateToTeamMember = (update: any, member: any): TeamMember => ({
+  id: member.id,
+  name: member.name,
+  role: member.role,
+  avatar: member.avatar,
+  yesterday: update.yesterday || '',
+  today: update.today || '',
+  blockers: update.blockers || '',
+  lastUpdated: update.created_at || member.updated_at
+});
+
+/**
+ * Group updates by their creation date
+ */
+const groupUpdatesByDate = (updates: any[]) => {
+  const updatesByDate = new Map<string, any[]>();
+  
+  updates.forEach(update => {
+    const updateDate = extractDateFromTimestamp(update.created_at);
+    if (!updatesByDate.has(updateDate)) {
+      updatesByDate.set(updateDate, []);
+    }
+    updatesByDate.get(updateDate)!.push(update);
+  });
+  
+  return updatesByDate;
+};
+
+// ============================================================================
+// MAIN HOOK
+// ============================================================================
 
 export function useStandupData() {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
@@ -43,36 +138,16 @@ export function useStandupData() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch today's standup data
+  // ============================================================================
+  // FETCH FUNCTIONS
+  // ============================================================================
+
   const fetchTodayStandup = async () => {
     try {
       const today = getVancouverDate();
+      const standupEntry = await getOrCreateStandupEntry(today);
 
-      // Get or create today's standup entry
-      const { data: standupEntries, error: entryError } = await supabase
-        .from('standup_entries')
-        .select('*')
-        .eq('date', today);
-
-      if (entryError) {
-        throw entryError;
-      }
-
-      let standupEntry = standupEntries?.[0];
-
-      if (!standupEntry) {
-        // Create today's entry if it doesn't exist
-        const { data: newEntry, error: createError } = await supabase
-          .from('standup_entries')
-          .insert({ date: today })
-          .select()
-          .single();
-
-        if (createError) throw createError;
-        standupEntry = newEntry;
-      }
-
-      // Fetch only team members who have submitted updates for today
+      // Fetch team members with today's updates
       const { data: members, error: membersError } = await supabase
         .from('team_members')
         .select(`
@@ -91,18 +166,9 @@ export function useStandupData() {
 
       if (membersError) throw membersError;
 
-      // Only show members who have actually submitted updates for today
-      const membersWithUpdates = members?.map(member => ({
-        id: member.id,
-        name: member.name,
-        role: member.role,
-        avatar: member.avatar,
-        yesterday: member.standup_updates[0]?.yesterday || '',
-        today: member.standup_updates[0]?.today || '',
-        blockers: member.standup_updates[0]?.blockers || '',
-        lastUpdated: member.standup_updates[0]?.created_at || member.updated_at,
-        created_at: member.standup_updates[0]?.created_at || null
-      })) || [];
+      const membersWithUpdates = members?.map(member => 
+        transformUpdateToTeamMember(member.standup_updates[0], member)
+      ) || [];
 
       setTeamMembers(membersWithUpdates);
     } catch (err) {
@@ -110,33 +176,19 @@ export function useStandupData() {
     }
   };
 
-  // Fetch yesterday's standup count
   const fetchYesterdayCount = async () => {
     try {
-      const yesterday = getYesterdayDate();
+      const targetDate = getPreviousBusinessDay();
 
-      // Get yesterday's standup entry by creation date, not by date field
-      const { data: yesterdayEntries } = await supabase
-        .from('standup_entries')
-        .select('id')
-        .gte('created_at', `${yesterday}T00:00:00-08:00`)
-        .lt('created_at', `${yesterday}T23:59:59-08:00`);
+      const { data: updates } = await supabase
+        .from('standup_updates')
+        .select('*');
 
-      if (yesterdayEntries && yesterdayEntries.length > 0) {
-        // Get the actual updates to see what's there
-        const { data: updates } = await supabase
-          .from('standup_updates')
-          .select('*')
-          .eq('standup_entry_id', yesterdayEntries[0].id);
-
-        // Filter updates to only include those created yesterday
-        const yesterdayUpdates = updates?.filter(update => {
-          // Extract just the date part from the timestamp (YYYY-MM-DD)
-          const updateDateStr = update.created_at.split('T')[0];
-          return updateDateStr === yesterday;
-        }) || [];
-
-        setYesterdayCount(yesterdayUpdates.length);
+      if (updates) {
+        const targetDateUpdates = updates.filter(update => 
+          extractDateFromTimestamp(update.created_at) === targetDate
+        );
+        setYesterdayCount(targetDateUpdates.length);
       } else {
         setYesterdayCount(0);
       }
@@ -146,21 +198,18 @@ export function useStandupData() {
     }
   };
 
-  // Fetch team engagement (unique team members who submitted updates this week)
   const fetchTeamEngagement = async () => {
     try {
       const weekStart = getWeekStartDate();
 
-      // Get all standup entries from this week
       const { data: weekEntries } = await supabase
         .from('standup_entries')
         .select('id')
         .gte('date', weekStart);
 
-      if (weekEntries && weekEntries.length > 0) {
+      if (weekEntries?.length) {
         const entryIds = weekEntries.map(entry => entry.id);
 
-        // Count unique team members who submitted updates this week
         const { data: uniqueMembers } = await supabase
           .from('standup_updates')
           .select('team_member_id')
@@ -181,47 +230,33 @@ export function useStandupData() {
     }
   };
 
-  // Fetch standup history
   const fetchStandupHistory = async () => {
     try {
-      const { data: entries, error: entriesError } = await supabase
-        .from('standup_entries')
+      const { data: updates, error: updatesError } = await supabase
+        .from('standup_updates')
         .select(`
           *,
-          standup_updates(
-            *,
-            team_members(*)
-          )
+          team_members(*),
+          standup_entries(*)
         `)
-        .order('date', { ascending: false })
-        .limit(10);
+        .order('created_at', { ascending: false })
+        .limit(50);
 
-      if (entriesError) throw entriesError;
+      if (updatesError) throw updatesError;
 
-      const history: StandupEntry[] = entries?.map(entry => {
-        // Filter updates to only include those created on the same date as the entry
-        const entryDate = new Date(entry.date);
-        const filteredUpdates = entry.standup_updates.filter((update: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-          const updateDate = new Date(update.created_at);
-          return updateDate.toDateString() === entryDate.toDateString();
-        });
+      const updatesByDate = groupUpdatesByDate(updates || []);
 
-        return {
-          id: entry.id,
-          date: entry.date,
-          teamMembers: filteredUpdates.map((update: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
-            id: update.team_members.id,
-            name: update.team_members.name,
-            role: update.team_members.role,
-            avatar: update.team_members.avatar,
-            yesterday: update.yesterday,
-            today: update.today,
-            blockers: update.blockers,
-            lastUpdated: update.created_at
-          })),
-          createdAt: entry.created_at
-        };
-      }) || [];
+      const history: StandupEntry[] = Array.from(updatesByDate.entries())
+        .sort(([dateA], [dateB]) => dateB.localeCompare(dateA))
+        .slice(0, 10)
+        .map(([date, dateUpdates]) => ({
+          id: `date-${date}`,
+          date,
+          teamMembers: dateUpdates.map(update => 
+            transformUpdateToTeamMember(update, update.team_members)
+          ),
+          createdAt: dateUpdates[0]?.created_at || date
+        }));
 
       setStandupHistory(history);
     } catch (err) {
@@ -229,33 +264,14 @@ export function useStandupData() {
     }
   };
 
-  // Save or update team member
+  // ============================================================================
+  // SAVE FUNCTION
+  // ============================================================================
+
   const saveMember = async (member: TeamMember) => {
     try {
       const today = getVancouverDate();
-
-      // Get or create today's standup entry
-      const { data: standupEntries, error: entryError } = await supabase
-        .from('standup_entries')
-        .select('*')
-        .eq('date', today);
-
-      if (entryError) {
-        throw entryError;
-      }
-
-      let standupEntry = standupEntries?.[0];
-
-      if (!standupEntry) {
-        const { data: newEntry, error: createError } = await supabase
-          .from('standup_entries')
-          .insert({ date: today })
-          .select()
-          .single();
-
-        if (createError) throw createError;
-        standupEntry = newEntry;
-      }
+      const standupEntry = await getOrCreateStandupEntry(today);
 
       // Check if team member exists
       const { data: existingMembers } = await supabase
@@ -291,39 +307,97 @@ export function useStandupData() {
         if (memberError) throw memberError;
       }
 
-      // Upsert standup update
-      const { error: updateError } = await supabase
+      // Check if update already exists for today
+      const { data: existingUpdates } = await supabase
         .from('standup_updates')
-        .upsert({
-          standup_entry_id: standupEntry.id,
-          team_member_id: member.id,
-          yesterday: member.yesterday,
-          today: member.today,
-          blockers: member.blockers
-        }, {
-          onConflict: 'standup_entry_id,team_member_id'
-        });
+        .select('*')
+        .eq('standup_entry_id', standupEntry.id)
+        .eq('team_member_id', member.id);
 
-      if (updateError) throw updateError;
+      const existingUpdate = existingUpdates?.[0];
+
+      if (existingUpdate) {
+        // Update existing standup update
+        const { error: updateError } = await supabase
+          .from('standup_updates')
+          .update({
+            yesterday: member.yesterday,
+            today: member.today,
+            blockers: member.blockers
+          })
+          .eq('id', existingUpdate.id);
+
+        if (updateError) throw updateError;
+      } else {
+        // Create new standup update
+        const { error: updateError } = await supabase
+          .from('standup_updates')
+          .insert({
+            standup_entry_id: standupEntry.id,
+            team_member_id: member.id,
+            yesterday: member.yesterday,
+            today: member.today,
+            blockers: member.blockers
+          });
+
+        if (updateError) throw updateError;
+      }
 
       // Refresh data
-      await fetchTodayStandup();
+      await Promise.all([
+        fetchTodayStandup(),
+        fetchYesterdayCount(),
+        fetchTeamEngagement(),
+        fetchStandupHistory()
+      ]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save member');
-      throw err;
+      throw new Error(err instanceof Error ? err.message : 'Failed to save member');
     }
   };
 
-  // Initialize data
+  // ============================================================================
+  // EFFECTS
+  // ============================================================================
+
   useEffect(() => {
-    const initializeData = async () => {
+    const loadData = async () => {
       setLoading(true);
-      await Promise.all([fetchTodayStandup(), fetchStandupHistory(), fetchYesterdayCount(), fetchTeamEngagement()]);
-      setLoading(false);
+      setError(null);
+      
+      try {
+        await Promise.all([
+          fetchTodayStandup(),
+          fetchYesterdayCount(),
+          fetchTeamEngagement(),
+          fetchStandupHistory()
+        ]);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load data');
+      } finally {
+        setLoading(false);
+      }
     };
 
-    initializeData();
+    loadData();
   }, []);
+
+  const refreshData = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      await Promise.all([
+        fetchTodayStandup(),
+        fetchYesterdayCount(),
+        fetchTeamEngagement(),
+        fetchStandupHistory()
+      ]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to refresh data');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return {
     teamMembers,
@@ -333,6 +407,6 @@ export function useStandupData() {
     loading,
     error,
     saveMember,
-    refreshData: () => Promise.all([fetchTodayStandup(), fetchStandupHistory(), fetchYesterdayCount(), fetchTeamEngagement()])
+    refreshData
   };
 }
