@@ -91,7 +91,7 @@ const AddUpdateModal = React.memo(function AddUpdateModal({ isOpen, onClose, onS
         blockers: ''
       });
     }
-  }, [member?.id, isOpen]); // Only depend on member ID, not the entire member object
+  }, [member, isOpen]);
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();

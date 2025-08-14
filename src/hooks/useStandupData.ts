@@ -98,7 +98,7 @@ const getOrCreateStandupEntry = async (date: string) => {
 /**
  * Transform database update to TeamMember format
  */
-const transformUpdateToTeamMember = (update: any, member: any): TeamMember => ({
+const transformUpdateToTeamMember = (update: { yesterday?: string; today?: string; blockers?: string; created_at?: string }, member: { id: string; name: string; role: string; avatar: string; updated_at?: string }): TeamMember => ({
   id: member.id,
   name: member.name,
   role: member.role,
@@ -106,25 +106,10 @@ const transformUpdateToTeamMember = (update: any, member: any): TeamMember => ({
   yesterday: update.yesterday || '',
   today: update.today || '',
   blockers: update.blockers || '',
-  lastUpdated: update.created_at || member.updated_at
+  lastUpdated: update.created_at || member.updated_at || new Date().toISOString()
 });
 
-/**
- * Group updates by their creation date
- */
-const groupUpdatesByDate = (updates: any[]) => {
-  const updatesByDate = new Map<string, any[]>();
-  
-  updates.forEach(update => {
-    const updateDate = extractDateFromTimestamp(update.created_at);
-    if (!updatesByDate.has(updateDate)) {
-      updatesByDate.set(updateDate, []);
-    }
-    updatesByDate.get(updateDate)!.push(update);
-  });
-  
-  return updatesByDate;
-};
+
 
 // ============================================================================
 // MAIN HOOK
@@ -182,18 +167,20 @@ export function useStandupData() {
 
       const { data: updates } = await supabase
         .from('standup_updates')
-        .select('*');
+        .select(`
+          *,
+          standup_entries(*)
+        `);
 
       if (updates) {
         const targetDateUpdates = updates.filter(update => 
-          extractDateFromTimestamp(update.created_at) === targetDate
+          update.standup_entries?.date === targetDate
         );
         setYesterdayCount(targetDateUpdates.length);
       } else {
         setYesterdayCount(0);
       }
-    } catch (err) {
-      console.error('Error fetching yesterday count:', err);
+    } catch {
       setYesterdayCount(0);
     }
   };
@@ -224,27 +211,57 @@ export function useStandupData() {
       } else {
         setTeamEngagement(0);
       }
-    } catch (err) {
-      console.error('Error fetching team engagement:', err);
+    } catch {
       setTeamEngagement(0);
     }
   };
 
   const fetchStandupHistory = async () => {
     try {
+      const today = getVancouverDate();
+      
+      // Fetch updates with their associated standup entries and team members
+      // Exclude today's updates from history
       const { data: updates, error: updatesError } = await supabase
         .from('standup_updates')
         .select(`
           *,
-          team_members(*),
-          standup_entries(*)
+          standup_entries!inner(
+            id,
+            date
+          ),
+          team_members!inner(
+            id,
+            name,
+            role,
+            avatar
+          )
         `)
+        .lt('created_at', `${today}T00:00:00-08:00`)
         .order('created_at', { ascending: false })
         .limit(50);
 
-      if (updatesError) throw updatesError;
+      if (updatesError) {
+        throw updatesError;
+      }
+      
+      if (!updates || updates.length === 0) {
+        setStandupHistory([]);
+        return;
+      }
 
-      const updatesByDate = groupUpdatesByDate(updates || []);
+      // Group by the actual submission date (when the update was created)
+      const updatesByDate = new Map<string, typeof updates>();
+      
+      updates.forEach(update => {
+        const submissionDate = extractDateFromTimestamp(update.created_at);
+        if (submissionDate) {
+          if (!updatesByDate.has(submissionDate)) {
+            updatesByDate.set(submissionDate, []);
+          }
+          updatesByDate.get(submissionDate)!.push(update);
+        }
+      });
 
       const history: StandupEntry[] = Array.from(updatesByDate.entries())
         .sort(([dateA], [dateB]) => dateB.localeCompare(dateA))
@@ -252,9 +269,16 @@ export function useStandupData() {
         .map(([date, dateUpdates]) => ({
           id: `date-${date}`,
           date,
-          teamMembers: dateUpdates.map(update => 
-            transformUpdateToTeamMember(update, update.team_members)
-          ),
+          teamMembers: dateUpdates.map((update) => ({
+            id: update.team_member_id,
+            name: update.team_members?.name || `Team Member ${update.team_member_id.slice(0, 8)}`,
+            role: update.team_members?.role || 'Developer',
+            avatar: update.team_members?.avatar || '',
+            yesterday: update.yesterday || '',
+            today: update.today || '',
+            blockers: update.blockers || '',
+            lastUpdated: update.created_at || update.updated_at
+          })),
           createdAt: dateUpdates[0]?.created_at || date
         }));
 

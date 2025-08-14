@@ -50,8 +50,6 @@ export default function StandupDashboard() {
     day: 'numeric'
   });
 
-  // Debug logging
-
 
   if (loading) {
     return (
