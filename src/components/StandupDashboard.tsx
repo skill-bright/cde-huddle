@@ -1,21 +1,37 @@
 import { useState, useCallback } from 'react';
-import { Plus, Users, Calendar, Target, History, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { Plus, Users, Calendar, Target, History, ChevronDown, ChevronUp, Loader2, FileText } from 'lucide-react';
 import TeamMemberCard from './TeamMemberCard';
 import AddUpdateModal from './AddUpdateModal';
 import StandupHistory from './StandupHistory';
-import { TeamMember } from '../types';
+import { WeeklyReport } from './WeeklyReport';
+import { TeamMember, WeeklyReportFilters, StoredWeeklyReport } from '../types';
 import { useStandupData } from '../hooks/useStandupData';
 import { getPreviousBusinessDay } from '../utils/dateUtils';
 
 export default function StandupDashboard() {
-  const { teamMembers, standupHistory, yesterdayCount, teamEngagement, loading, error, saveMember, refreshData } = useStandupData();
-
-
+  const { 
+    teamMembers, 
+    standupHistory, 
+    yesterdayCount, 
+    teamEngagement, 
+    loading, 
+    error, 
+    saveMember, 
+    refreshData,
+    weeklyReport,
+    weeklyReportLoading,
+    weeklyReportError,
+    generateWeeklyReport,
+    getPreviousWeekDates,
+    storedWeeklyReports,
+    storedReportsLoading
+  } = useStandupData();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<TeamMember | undefined>();
   const [showHistory, setShowHistory] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState<'daily' | 'weekly'>('daily');
 
   const handleSaveMember = useCallback(async (member: TeamMember) => {
     setSaving(true);
@@ -43,13 +59,25 @@ export default function StandupDashboard() {
     setIsModalOpen(false);
   }, []);
 
+  const handleGenerateWeeklyReport = useCallback((filters: WeeklyReportFilters) => {
+    generateWeeklyReport(filters);
+  }, [generateWeeklyReport]);
+
+  const handleViewStoredReport = useCallback((report: StoredWeeklyReport) => {
+    // Set the stored report as the current report
+    if (report.reportData) {
+      // This would need to be implemented in the useStandupData hook
+      // For now, we'll just log it
+      console.log('Viewing stored report:', report);
+    }
+  }, []);
+
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
     day: 'numeric'
   });
-
 
   if (loading) {
     return (
@@ -88,7 +116,7 @@ export default function StandupDashboard() {
             <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-teal-600 rounded-xl flex items-center justify-center">
               <Users className="text-white" size={24} />
             </div>
-            <h1 className="text-3xl font-bold text-gray-900">Daily Standup</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Team Standup</h1>
           </div>
           <div className="flex items-center gap-2 text-gray-600">
             <Calendar size={16} />
@@ -96,107 +124,160 @@ export default function StandupDashboard() {
           </div>
         </div>
 
-        {/* Stats Bar */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Users size={20} className="text-blue-600" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Updates Today</p>
-                <p className="text-xl font-semibold text-gray-900">{teamMembers.length}</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                <Target size={20} className="text-green-600" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">
-                  {getPreviousBusinessDay() === 'Friday' ? 'Friday Updates' : 'Yesterday Updates'}
-                </p>
-                <p className="text-xl font-semibold text-gray-900">
-                  {yesterdayCount}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                <Users size={20} className="text-purple-600" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Team Engagement</p>
-                <p className="text-xl font-semibold text-gray-900">
-                  {teamEngagement}
-                </p>
-              </div>
-            </div>
+        {/* Navigation Tabs */}
+        <div className="mb-8">
+          <div className="border-b border-gray-200">
+            <nav className="-mb-px flex space-x-8">
+              <button
+                onClick={() => setActiveTab('daily')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'daily'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Users size={16} />
+                  Daily Standup
+                </div>
+              </button>
+              <button
+                onClick={() => setActiveTab('weekly')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'weekly'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <FileText size={16} />
+                  Weekly Reports
+                </div>
+              </button>
+            </nav>
           </div>
         </div>
 
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center gap-4">
-            <h2 className="text-xl font-semibold text-gray-900">Today's Updates</h2>
-            <button
-              onClick={() => setShowHistory(!showHistory)}
-              className="px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors duration-200 flex items-center gap-2"
-            >
-              <History size={18} />
-              History
-              {showHistory ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            </button>
-          </div>
-          <div className="flex gap-3">
-            <button
-              onClick={handleAddMember}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center gap-2 shadow-sm"
-              disabled={saving}
-            >
-              {saving ? <Loader2 className="animate-spin" size={18} /> : <Plus size={18} />}
-              Add My Update
-            </button>
-          </div>
-        </div>
+        {/* Daily Standup Tab */}
+        {activeTab === 'daily' && (
+          <>
+            {/* Stats Bar */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Users size={20} className="text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Updates Today</p>
+                    <p className="text-xl font-semibold text-gray-900">{teamMembers.length}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                    <Target size={20} className="text-green-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">
+                      {getPreviousBusinessDay() === 'Friday' ? 'Friday Updates' : 'Yesterday Updates'}
+                    </p>
+                    <p className="text-xl font-semibold text-gray-900">
+                      {yesterdayCount}
+                    </p>
+                  </div>
+                </div>
+              </div>
 
-        {/* Standup History */}
-        <StandupHistory 
-          history={standupHistory}
-          isOpen={showHistory}
-          onToggle={() => setShowHistory(!showHistory)}
-        />
-
-        {/* Team Members Grid - Masonry Layout */}
-        <div className="columns-1 md:columns-2 xl:columns-3 gap-6">
-          {teamMembers.map((member) => (
-            <div key={member.id} className="break-inside-avoid mb-6">
-              <TeamMemberCard
-                member={member}
-                onEdit={handleEditMember}
-              />
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <Users size={20} className="text-purple-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Team Engagement</p>
+                    <p className="text-xl font-semibold text-gray-900">
+                      {teamEngagement}
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
-          ))}
-        </div>
 
-        {teamMembers.length === 0 && (
-          <div className="text-center py-12">
-            <Users size={48} className="text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No updates yet</h3>
-            <p className="text-gray-500 mb-4">Add your update to get started with today's standup</p>
-            <button
-              onClick={handleAddMember}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center gap-2 mx-auto"
-            >
-              <Plus size={20} />
-              Add My Update
-            </button>
-          </div>
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-4">
+                <h2 className="text-xl font-semibold text-gray-900">Today's Updates</h2>
+                <button
+                  onClick={() => setShowHistory(!showHistory)}
+                  className="px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors duration-200 flex items-center gap-2"
+                >
+                  <History size={18} />
+                  History
+                  {showHistory ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </button>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleAddMember}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center gap-2 shadow-sm"
+                  disabled={saving}
+                >
+                  {saving ? <Loader2 className="animate-spin" size={18} /> : <Plus size={18} />}
+                  Add My Update
+                </button>
+              </div>
+            </div>
+
+            {/* Standup History */}
+            <StandupHistory 
+              history={standupHistory}
+              isOpen={showHistory}
+              onToggle={() => setShowHistory(!showHistory)}
+            />
+
+            {/* Team Members Grid - Masonry Layout */}
+            <div className="columns-1 md:columns-2 xl:columns-3 gap-6">
+              {teamMembers.map((member) => (
+                <div key={member.id} className="break-inside-avoid mb-6">
+                  <TeamMemberCard
+                    member={member}
+                    onEdit={handleEditMember}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {teamMembers.length === 0 && (
+              <div className="text-center py-12">
+                <Users size={48} className="text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No updates yet</h3>
+                <p className="text-gray-500 mb-4">Add your update to get started with today's standup</p>
+                <button
+                  onClick={handleAddMember}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center gap-2 mx-auto"
+                >
+                  <Plus size={20} />
+                  Add My Update
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Weekly Report Tab */}
+        {activeTab === 'weekly' && (
+          <WeeklyReport
+            report={weeklyReport}
+            loading={weeklyReportLoading}
+            error={weeklyReportError}
+            onGenerateReport={handleGenerateWeeklyReport}
+            getPreviousWeekDates={getPreviousWeekDates}
+            storedReports={storedWeeklyReports}
+            storedReportsLoading={storedReportsLoading}
+            onViewStoredReport={handleViewStoredReport}
+          />
         )}
       </div>
 

@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { TeamMember, StandupEntry } from '../types';
+import { TeamMember, StandupEntry, WeeklyReport, WeeklyReportFilters, StoredWeeklyReport } from '../types';
+import { generateWeeklySummary } from '../utils/aiUtils';
+import { startWeeklyReportScheduler, requestNotificationPermission } from '../utils/scheduler';
 
 // ============================================================================
 // DATE UTILITIES
@@ -122,6 +124,13 @@ export function useStandupData() {
   const [teamEngagement, setTeamEngagement] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Weekly report state
+  const [weeklyReport, setWeeklyReport] = useState<WeeklyReport | null>(null);
+  const [weeklyReportLoading, setWeeklyReportLoading] = useState(false);
+  const [weeklyReportError, setWeeklyReportError] = useState<string | null>(null);
+  const [storedWeeklyReports, setStoredWeeklyReports] = useState<StoredWeeklyReport[]>([]);
+  const [storedReportsLoading, setStoredReportsLoading] = useState(false);
 
   // ============================================================================
   // FETCH FUNCTIONS
@@ -380,6 +389,238 @@ export function useStandupData() {
   };
 
   // ============================================================================
+  // WEEKLY REPORT FUNCTIONS
+  // ============================================================================
+
+  const generateWeeklyReport = async (filters: WeeklyReportFilters = { includeAI: true }) => {
+    try {
+      setWeeklyReportLoading(true);
+      setWeeklyReportError(null);
+
+      // Determine week range
+      const weekStart = filters.weekStart || getWeekStartDate();
+      const weekEnd = filters.weekEnd || getVancouverDate();
+
+      // Fetch all standup entries for the week
+      const { data: weekEntries, error: entriesError } = await supabase
+        .from('standup_entries')
+        .select('id, date')
+        .gte('date', weekStart)
+        .lte('date', weekEnd)
+        .order('date', { ascending: true });
+
+      if (entriesError) throw entriesError;
+
+      if (!weekEntries || weekEntries.length === 0) {
+        setWeeklyReport({
+          weekStart,
+          weekEnd,
+          totalUpdates: 0,
+          uniqueMembers: 0,
+          entries: [],
+                  summary: {
+          keyAccomplishments: [],
+          ongoingWork: [],
+          blockers: [],
+          teamInsights: 'No standup data available for this week.',
+          recommendations: [],
+          memberSummaries: {}
+        }
+        });
+        return;
+      }
+
+      const entryIds = weekEntries.map(entry => entry.id);
+
+      // Fetch all updates for the week
+      const { data: updates, error: updatesError } = await supabase
+        .from('standup_updates')
+        .select(`
+          *,
+          standup_entries!inner(
+            id,
+            date
+          ),
+          team_members!inner(
+            id,
+            name,
+            role,
+            avatar
+          )
+        `)
+        .in('standup_entry_id', entryIds)
+        .order('created_at', { ascending: true });
+
+      if (updatesError) throw updatesError;
+
+      // Group updates by date
+      const updatesByDate = new Map<string, typeof updates>();
+      
+      updates?.forEach(update => {
+        const date = update.standup_entries?.date;
+        if (date) {
+          if (!updatesByDate.has(date)) {
+            updatesByDate.set(date, []);
+          }
+          updatesByDate.get(date)!.push(update);
+        }
+      });
+
+      // Convert to StandupEntry format
+      const entries: StandupEntry[] = Array.from(updatesByDate.entries())
+        .map(([date, dateUpdates]) => ({
+          id: `weekly-${date}`,
+          date,
+          teamMembers: dateUpdates.map((update) => ({
+            id: update.team_member_id,
+            name: update.team_members?.name || `Team Member ${update.team_member_id.slice(0, 8)}`,
+            role: update.team_members?.role || 'Developer',
+            avatar: update.team_members?.avatar || '',
+            yesterday: update.yesterday || '',
+            today: update.today || '',
+            blockers: update.blockers || '',
+            lastUpdated: update.created_at || update.updated_at
+          })),
+          createdAt: dateUpdates[0]?.created_at || date
+        }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+
+      // Calculate statistics
+      const totalUpdates = updates?.length || 0;
+      
+      // Count unique members by their actual identity (name + role combination)
+      const uniqueMembersSet = new Set<string>();
+      updates?.forEach(update => {
+        const memberName = update.team_members?.name || `Team Member ${update.team_member_id.slice(0, 8)}`;
+        const memberRole = update.team_members?.role || 'Developer';
+        uniqueMembersSet.add(`${memberName} (${memberRole})`);
+      });
+      const uniqueMembers = uniqueMembersSet.size;
+
+      // Generate AI summary if requested
+      let summary;
+      if (filters.includeAI && entries.length > 0) {
+        try {
+          summary = await generateWeeklySummary({
+            weekStart,
+            weekEnd,
+            entries,
+            customPrompt: filters.customPrompt
+          });
+        } catch (aiError) {
+          console.error('AI summary generation failed:', aiError);
+          summary = {
+            keyAccomplishments: [],
+            ongoingWork: [],
+            blockers: [],
+            teamInsights: 'AI summary generation failed. Please review the data manually.',
+            recommendations: [],
+            memberSummaries: {}
+          };
+        }
+      } else {
+        // Generate basic summary without AI
+        summary = generateBasicSummary(entries);
+      }
+
+      const report: WeeklyReport = {
+        weekStart,
+        weekEnd,
+        totalUpdates,
+        uniqueMembers,
+        entries,
+        summary
+      };
+
+      setWeeklyReport(report);
+    } catch (err) {
+      setWeeklyReportError(err instanceof Error ? err.message : 'Failed to generate weekly report');
+    } finally {
+      setWeeklyReportLoading(false);
+    }
+  };
+
+  const generateBasicSummary = (entries: StandupEntry[]) => {
+    const allAccomplishments: string[] = [];
+    const allOngoingWork: string[] = [];
+    const allBlockers: string[] = [];
+
+    entries.forEach(entry => {
+      entry.teamMembers.forEach(member => {
+        if (member.yesterday && member.yesterday.trim()) {
+          allAccomplishments.push(`${member.name}: ${member.yesterday}`);
+        }
+        if (member.today && member.today.trim()) {
+          allOngoingWork.push(`${member.name}: ${member.today}`);
+        }
+        if (member.blockers && member.blockers.trim()) {
+          allBlockers.push(`${member.name}: ${member.blockers}`);
+        }
+      });
+    });
+
+    return {
+      keyAccomplishments: allAccomplishments.slice(0, 10), // Limit to top 10
+      ongoingWork: allOngoingWork.slice(0, 10),
+      blockers: allBlockers.slice(0, 10),
+      teamInsights: `Generated basic summary for ${entries.length} days with ${allAccomplishments.length} accomplishments, ${allOngoingWork.length} ongoing tasks, and ${allBlockers.length} blockers.`,
+      recommendations: [],
+      memberSummaries: {}
+    };
+  };
+
+  const getPreviousWeekDates = () => {
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    
+    const lastMonday = new Date(today);
+    lastMonday.setDate(today.getDate() - daysToMonday - 7);
+    
+    const lastSunday = new Date(lastMonday);
+    lastSunday.setDate(lastMonday.getDate() + 6);
+    
+    return {
+      weekStart: getVancouverDate(lastMonday),
+      weekEnd: getVancouverDate(lastSunday)
+    };
+  };
+
+  const fetchStoredWeeklyReports = async () => {
+    try {
+      setStoredReportsLoading(true);
+      
+      const { data: reports, error } = await supabase
+        .from('weekly_reports')
+        .select('*')
+        .order('generated_at', { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+
+      const formattedReports: StoredWeeklyReport[] = reports?.map(report => ({
+        id: report.id,
+        weekStart: report.week_start,
+        weekEnd: report.week_end,
+        totalUpdates: report.total_updates,
+        uniqueMembers: report.unique_members,
+        reportData: report.report_data,
+        generatedAt: report.generated_at,
+        status: report.status,
+        error: report.error,
+        createdAt: report.created_at,
+        updatedAt: report.updated_at
+      })) || [];
+
+      setStoredWeeklyReports(formattedReports);
+    } catch (err) {
+      console.error('Failed to fetch stored weekly reports:', err);
+    } finally {
+      setStoredReportsLoading(false);
+    }
+  };
+
+  // ============================================================================
   // EFFECTS
   // ============================================================================
 
@@ -393,7 +634,8 @@ export function useStandupData() {
           fetchTodayStandup(),
           fetchYesterdayCount(),
           fetchTeamEngagement(),
-          fetchStandupHistory()
+          fetchStandupHistory(),
+          fetchStoredWeeklyReports()
         ]);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load data');
@@ -403,6 +645,12 @@ export function useStandupData() {
     };
 
     loadData();
+    
+    // Start the weekly report scheduler
+    startWeeklyReportScheduler();
+    
+    // Request notification permission
+    requestNotificationPermission();
   }, []);
 
   const refreshData = async () => {
@@ -431,6 +679,16 @@ export function useStandupData() {
     loading,
     error,
     saveMember,
-    refreshData
+    refreshData,
+    // Weekly report functions
+    weeklyReport,
+    weeklyReportLoading,
+    weeklyReportError,
+    generateWeeklyReport,
+    getPreviousWeekDates,
+    // Stored weekly reports
+    storedWeeklyReports,
+    storedReportsLoading,
+    fetchStoredWeeklyReports
   };
 }
