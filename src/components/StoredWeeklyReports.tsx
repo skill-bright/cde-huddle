@@ -79,13 +79,18 @@ export function StoredWeeklyReports({ reports, loading, onViewReport }: StoredWe
   if (reports.length === 0) {
     return (
       <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <div className="text-center py-8">
-          <FileText className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No stored reports</h3>
-          <p className="text-gray-500">
-            Automatically generated weekly reports will appear here.
+              <div className="text-center py-8">
+        <FileText className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+        <h3 className="text-lg font-medium text-gray-900 mb-2">No stored reports yet</h3>
+        <p className="text-gray-500 mb-4">
+          Weekly reports are automatically generated every Friday at 12:00 PM PST.
+        </p>
+        <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+          <p className="text-sm text-blue-700">
+            <strong>Next automatic generation:</strong> Friday at 12:00 PM PST
           </p>
         </div>
+      </div>
       </div>
     );
   }
@@ -158,8 +163,9 @@ export function StoredWeeklyReports({ reports, loading, onViewReport }: StoredWe
 
       <div className="mt-6 pt-4 border-t border-gray-200">
         <div className="text-sm text-gray-500">
-          <p>📅 Reports are automatically generated every Friday at 12:00 PM PST</p>
-          <p>🔔 You'll receive a browser notification when a new report is ready</p>
+          <p>📅 <strong>Automatic Generation:</strong> Reports are automatically generated every Friday at 12:00 PM PST</p>
+          <p>🔔 <strong>Notifications:</strong> You'll receive a browser notification when a new report is ready</p>
+          <p>📊 <strong>No Manual Action Required:</strong> Reports are created automatically based on your team's standup data</p>
         </div>
       </div>
     </div>

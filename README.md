@@ -12,16 +12,16 @@ A modern team standup application with AI-powered weekly report consolidation.
 - Responsive design with masonry layout
 
 ### Weekly Reports (NEW!)
-- **AI-Powered Analysis**: Uses Anthropic's Claude AI to generate comprehensive weekly summaries
 - **Automatic Generation**: Reports are automatically generated every Friday at 12:00 PM PST
+- **No Manual Action Required**: Reports are created automatically based on your team's standup data
 - **Stored Reports**: View and manage previously generated weekly reports
+- **AI-Powered Analysis**: Uses Anthropic's Claude AI to generate comprehensive weekly summaries
 - **Consolidated Insights**: Key accomplishments, ongoing work, blockers, and recommendations
 - **Individual Member Summaries**: Detailed breakdown for each team member including:
   - Key contributions and achievements
   - Progress summary
   - Concerns and blockers
   - Next week's focus areas
-- **Customizable Reports**: Choose date ranges and customize AI prompts
 - **Export Functionality**: Download reports as CSV files
 - **Team Insights**: AI-generated observations about team productivity and patterns
 - **Browser Notifications**: Get notified when new reports are automatically generated
@@ -86,14 +86,11 @@ The weekly report feature uses Anthropic's Claude AI to analyze standup data and
   - Concerns and blockers
   - Next week's focus areas
 
-### Customization
-- **Date Range Selection**: Choose specific weeks for analysis
-- **Custom AI Prompts**: Provide specific instructions to guide the AI analysis
-- **AI Toggle**: Option to generate reports with or without AI analysis
-
-### Export Options
-- **CSV Export**: Download detailed weekly data for external analysis
-- **Formatted Reports**: Beautiful, shareable weekly summaries
+### Report Management
+- **Automatic Scheduling**: Reports are generated every Friday at 12:00 PM PST
+- **Stored History**: Access all previously generated reports
+- **Export Options**: Download reports as CSV files for external analysis
+- **Status Tracking**: Monitor report generation status and any errors
 
 ## Database Schema
 

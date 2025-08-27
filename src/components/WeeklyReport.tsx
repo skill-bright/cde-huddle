@@ -7,7 +7,6 @@ interface WeeklyReportProps {
   report: WeeklyReportType | null;
   loading: boolean;
   error: string | null;
-  onGenerateReport: (filters: WeeklyReportFilters) => void;
   getPreviousWeekDates: () => { weekStart: string; weekEnd: string };
   storedReports: StoredWeeklyReport[];
   storedReportsLoading: boolean;
@@ -18,7 +17,6 @@ export function WeeklyReport({
   report, 
   loading, 
   error, 
-  onGenerateReport, 
   getPreviousWeekDates,
   storedReports,
   storedReportsLoading,
@@ -32,9 +30,7 @@ export function WeeklyReport({
     weekEnd: getPreviousWeekDates().weekEnd
   });
 
-  const handleGenerateReport = () => {
-    onGenerateReport(filters);
-  };
+
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -76,8 +72,8 @@ export function WeeklyReport({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Weekly Report</h2>
-          <p className="text-gray-600">Consolidated standup summary with AI insights</p>
+          <h2 className="text-2xl font-bold text-gray-900">Weekly Reports</h2>
+          <p className="text-gray-600">Automatically generated standup summaries with AI insights</p>
         </div>
       </div>
 
@@ -94,7 +90,7 @@ export function WeeklyReport({
           >
             <div className="flex items-center gap-2">
               <FileText className="w-4 h-4" />
-              Generate Report
+              Report Info
             </div>
           </button>
           <button
@@ -116,21 +112,29 @@ export function WeeklyReport({
       {/* Generate Report Tab */}
       {activeTab === 'generate' && (
         <>
+          <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-6">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <FileText className="w-5 h-5 text-blue-600" />
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-blue-800">Automatic Report Generation</h3>
+                <p className="mt-1 text-sm text-blue-700">
+                  Weekly reports are automatically generated every Friday at 12:00 PM PST. 
+                  Manual generation is not available. Check the "Stored Reports" tab to view 
+                  previously generated reports.
+                </p>
+              </div>
+            </div>
+          </div>
+
           <div className="flex items-center justify-end space-x-3">
             <button
               onClick={() => setShowFilters(!showFilters)}
               className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               <Settings className="w-4 h-4" />
-              <span>Filters</span>
-            </button>
-            <button
-              onClick={handleGenerateReport}
-              disabled={loading}
-              className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-            >
-              <FileText className="w-4 h-4" />
-              <span>{loading ? 'Generating...' : 'Generate Report'}</span>
+              <span>Report Settings</span>
             </button>
           </div>
 
@@ -484,16 +488,17 @@ export function WeeklyReport({
         {!report && !loading && !error && (
           <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
             <FileText className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No report generated</h3>
+            <h3 className="mt-2 text-sm font-medium text-gray-900">No current report</h3>
             <p className="mt-1 text-sm text-gray-500">
-              Generate a weekly report to see consolidated standup data and AI insights.
+              Weekly reports are automatically generated every Friday at 12:00 PM PST. 
+              Check the "Stored Reports" tab to view previously generated reports.
             </p>
             <div className="mt-6">
               <button
-                onClick={handleGenerateReport}
+                onClick={() => setActiveTab('stored')}
                 className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
-                Generate Report
+                View Stored Reports
               </button>
             </div>
           </div>

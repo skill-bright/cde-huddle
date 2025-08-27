@@ -4,7 +4,7 @@ import TeamMemberCard from './TeamMemberCard';
 import AddUpdateModal from './AddUpdateModal';
 import StandupHistory from './StandupHistory';
 import { WeeklyReport } from './WeeklyReport';
-import { TeamMember, WeeklyReportFilters, StoredWeeklyReport } from '../types';
+import { TeamMember, StoredWeeklyReport } from '../types';
 import { useStandupData } from '../hooks/useStandupData';
 import { getPreviousBusinessDay } from '../utils/dateUtils';
 
@@ -21,7 +21,7 @@ export default function StandupDashboard() {
     weeklyReport,
     weeklyReportLoading,
     weeklyReportError,
-    generateWeeklyReport,
+
     getPreviousWeekDates,
     storedWeeklyReports,
     storedReportsLoading
@@ -59,9 +59,7 @@ export default function StandupDashboard() {
     setIsModalOpen(false);
   }, []);
 
-  const handleGenerateWeeklyReport = useCallback((filters: WeeklyReportFilters) => {
-    generateWeeklyReport(filters);
-  }, [generateWeeklyReport]);
+
 
   const handleViewStoredReport = useCallback((report: StoredWeeklyReport) => {
     // Set the stored report as the current report
@@ -272,7 +270,7 @@ export default function StandupDashboard() {
             report={weeklyReport}
             loading={weeklyReportLoading}
             error={weeklyReportError}
-            onGenerateReport={handleGenerateWeeklyReport}
+
             getPreviousWeekDates={getPreviousWeekDates}
             storedReports={storedWeeklyReports}
             storedReportsLoading={storedReportsLoading}
