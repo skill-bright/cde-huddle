@@ -79,18 +79,41 @@ export function StoredWeeklyReports({ reports, loading, onViewReport }: StoredWe
   if (reports.length === 0) {
     return (
       <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <div className="text-center py-8">
-        <FileText className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-        <h3 className="text-lg font-medium text-gray-900 mb-2">No stored reports yet</h3>
-        <p className="text-gray-500 mb-4">
-          Weekly reports are automatically generated every Friday at 12:00 PM PST.
-        </p>
-        <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-          <p className="text-sm text-blue-700">
-            <strong>Next automatic generation:</strong> Friday at 12:00 PM PST
+        <div className="text-center py-8">
+          <FileText className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No stored reports yet</h3>
+          <p className="text-gray-500 mb-4">
+            Weekly reports are automatically generated every Friday at 12:00 PM PST.
           </p>
+          
+          {/* Setup Message - Check if this is due to missing table */}
+          <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-4">
+            <div className="flex items-start">
+              <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5 mr-3" />
+              <div className="text-left">
+                <h4 className="text-sm font-medium text-yellow-800 mb-1">Database Setup Required</h4>
+                <p className="text-sm text-yellow-700 mb-2">
+                  The weekly reports feature requires the database to be properly set up. 
+                  If you're seeing this message, the weekly_reports table may not exist.
+                </p>
+                <div className="text-xs text-yellow-600 space-y-1">
+                  <p><strong>To fix this:</strong></p>
+                  <ol className="list-decimal list-inside space-y-1 ml-2">
+                    <li>Ensure Supabase is properly configured with environment variables</li>
+                    <li>Run the database migrations in the supabase/migrations/ directory</li>
+                    <li>Apply the 20250813000000_add_weekly_reports.sql migration</li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+            <p className="text-sm text-blue-700">
+              <strong>Next automatic generation:</strong> Friday at 12:00 PM PST
+            </p>
+          </div>
         </div>
-      </div>
       </div>
     );
   }

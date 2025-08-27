@@ -2,8 +2,6 @@ import { supabase } from '../lib/supabase';
 
 const VANCOUVER_TIMEZONE = 'America/Vancouver';
 
-
-
 /**
  * Get the current time in Vancouver timezone
  */
@@ -190,7 +188,7 @@ const generateBasicWeeklyReport = async (weekStart: string, weekEnd: string): Pr
 /**
  * Save the generated report to the database
  */
-const saveWeeklyReport = async (report: unknown): Promise<void> => {
+const saveWeeklyReport = async (report: any): Promise<void> => {
   try {
     const { error } = await supabase
       .from('weekly_reports')
@@ -204,10 +202,20 @@ const saveWeeklyReport = async (report: unknown): Promise<void> => {
         status: 'generated'
       });
 
-    if (error) throw error;
+    if (error) {
+      // Check if the error is due to missing table
+      if (error.code === 'PGRST205') {
+        console.log('Weekly reports table not found. Skipping report save.');
+        return;
+      }
+      throw error;
+    }
   } catch (error) {
     console.error('Error saving weekly report:', error);
-    throw error;
+    // Don't throw error for missing table, just log it
+    if (error && typeof error === 'object' && 'code' in error && error.code !== 'PGRST205') {
+      throw error;
+    }
   }
 };
 
@@ -223,8 +231,16 @@ const checkExistingReport = async (weekStart: string, weekEnd: string): Promise<
       .eq('week_end', weekEnd)
       .single();
 
-    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
-      throw error;
+    if (error) {
+      // Check if the error is due to missing table
+      if (error.code === 'PGRST205') {
+        console.log('Weekly reports table not found. Skipping duplicate check.');
+        return false;
+      }
+      // PGRST116 = no rows returned
+      if (error.code !== 'PGRST116') {
+        throw error;
+      }
     }
 
     return !!data;
@@ -263,20 +279,13 @@ export const checkAndGenerateWeeklyReport = async (): Promise<void> => {
     
     console.log('Weekly report generated and saved successfully');
     
-    // Optionally send notification
-    if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification('Weekly Report Generated', {
-        body: `Weekly report for ${weekStart} to ${weekEnd} has been generated automatically.`,
-        icon: '/favicon.ico'
-      });
-    }
   } catch (error) {
     console.error('Error in automatic weekly report generation:', error);
     
     // Save error to database
     try {
       const { weekStart, weekEnd } = getCurrentWeekDates();
-      await supabase
+      const { error: saveError } = await supabase
         .from('weekly_reports')
         .insert({
           week_start: weekStart,
@@ -285,6 +294,12 @@ export const checkAndGenerateWeeklyReport = async (): Promise<void> => {
           status: 'failed',
           error: error instanceof Error ? error.message : 'Unknown error'
         });
+      
+      if (saveError && saveError.code === 'PGRST205') {
+        console.log('Weekly reports table not found. Skipping error save.');
+      } else if (saveError) {
+        console.error('Error saving failed report:', saveError);
+      }
     } catch (saveError) {
       console.error('Error saving failed report:', saveError);
     }
@@ -302,13 +317,4 @@ export const startWeeklyReportScheduler = (): void => {
   setInterval(checkAndGenerateWeeklyReport, 60 * 1000);
   
   console.log('Weekly report scheduler started');
-};
-
-/**
- * Request notification permission
- */
-export const requestNotificationPermission = async (): Promise<void> => {
-  if ('Notification' in window && Notification.permission === 'default') {
-    await Notification.requestPermission();
-  }
 };

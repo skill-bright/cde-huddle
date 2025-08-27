@@ -24,7 +24,7 @@ export default function StandupDashboard() {
 
     getPreviousWeekDates,
     storedWeeklyReports,
-    storedReportsLoading
+    storedReportsLoading,
   } = useStandupData();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -50,7 +50,8 @@ export default function StandupDashboard() {
     setIsModalOpen(true);
   }, []);
 
-  const handleAddMember = useCallback(() => {
+  const handleAddMember = useCallback(async () => {
+    
     setEditingMember(undefined);
     setIsModalOpen(true);
   }, []);
@@ -95,7 +96,9 @@ export default function StandupDashboard() {
           <div className="text-red-600 mb-2">Database Connection Error</div>
           <p className="text-gray-600 mb-4">{error}</p>
           <button
-            onClick={() => refreshData()}
+            onClick={async () => {
+              refreshData();
+            }}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
           >
             Retry
@@ -127,7 +130,9 @@ export default function StandupDashboard() {
           <div className="border-b border-gray-200">
             <nav className="-mb-px flex space-x-8">
               <button
-                onClick={() => setActiveTab('daily')}
+                onClick={async () => {
+                  setActiveTab('daily');
+                }}
                 className={`py-2 px-1 border-b-2 font-medium text-sm ${
                   activeTab === 'daily'
                     ? 'border-blue-500 text-blue-600'
@@ -140,7 +145,9 @@ export default function StandupDashboard() {
                 </div>
               </button>
               <button
-                onClick={() => setActiveTab('weekly')}
+                onClick={async () => {
+                  setActiveTab('weekly');
+                }}
                 className={`py-2 px-1 border-b-2 font-medium text-sm ${
                   activeTab === 'weekly'
                     ? 'border-blue-500 text-blue-600'
@@ -208,7 +215,9 @@ export default function StandupDashboard() {
               <div className="flex items-center gap-4">
                 <h2 className="text-xl font-semibold text-gray-900">Today's Updates</h2>
                 <button
-                  onClick={() => setShowHistory(!showHistory)}
+                  onClick={async () => {
+                    setShowHistory(!showHistory);
+                  }}
                   className="px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors duration-200 flex items-center gap-2"
                 >
                   <History size={18} />

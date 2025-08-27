@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { TeamMember, StandupEntry, WeeklyReport, WeeklyReportFilters, StoredWeeklyReport } from '../types';
 import { generateWeeklySummary } from '../utils/aiUtils';
-import { startWeeklyReportScheduler, requestNotificationPermission } from '../utils/scheduler';
+import { startWeeklyReportScheduler } from '../utils/scheduler';
 
 // ============================================================================
 // DATE UTILITIES
@@ -596,7 +596,15 @@ export function useStandupData() {
         .order('generated_at', { ascending: false })
         .limit(10);
 
-      if (error) throw error;
+      if (error) {
+        // Check if the error is due to missing table
+        if (error.code === 'PGRST205') {
+          console.log('Weekly reports table not found. This feature requires database setup.');
+          setStoredWeeklyReports([]);
+          return;
+        }
+        throw error;
+      }
 
       const formattedReports: StoredWeeklyReport[] = reports?.map(report => ({
         id: report.id,
@@ -615,6 +623,7 @@ export function useStandupData() {
       setStoredWeeklyReports(formattedReports);
     } catch (err) {
       console.error('Failed to fetch stored weekly reports:', err);
+      setStoredWeeklyReports([]);
     } finally {
       setStoredReportsLoading(false);
     }
@@ -648,9 +657,6 @@ export function useStandupData() {
     
     // Start the weekly report scheduler
     startWeeklyReportScheduler();
-    
-    // Request notification permission
-    requestNotificationPermission();
   }, []);
 
   const refreshData = async () => {
@@ -689,6 +695,6 @@ export function useStandupData() {
     // Stored weekly reports
     storedWeeklyReports,
     storedReportsLoading,
-    fetchStoredWeeklyReports
+    fetchStoredWeeklyReports,
   };
 }
