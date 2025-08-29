@@ -9,7 +9,7 @@ const TEAM_MEMBERS = [
   { id: '1', name: 'Ibrahim', role: 'Boss' },
   { id: '2', name: 'Aurelio', role: 'Developer' },
   { id: '3', name: 'Francois', role: 'Developer' },
-  { id: '4', name: 'Isik', role: 'PR' },
+  { id: '4', name: 'Isik', role: 'Marketing' },
   { id: '5', name: 'Atena', role: 'Developer' },
 ];
 

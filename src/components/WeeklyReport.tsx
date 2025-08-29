@@ -89,7 +89,13 @@ export function WeeklyReport({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
-              onClick={() => setWeeklyReport(null)}
+              onClick={() => {
+                setWeeklyReport(null);
+                // Clear the URL query parameter to prevent re-triggering the report
+                const url = new URL(window.location.href);
+                url.searchParams.delete('report');
+                window.history.replaceState({}, '', url.toString());
+              }}
               className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors duration-200"
             >
               <ArrowLeft className="w-4 h-4" />
