@@ -1,4 +1,3 @@
-import React from 'react';
 import { StoredWeeklyReport } from '../types';
 import { Calendar, FileText, Users, Clock, CheckCircle, XCircle, AlertTriangle, Eye } from 'lucide-react';
 
@@ -187,8 +186,6 @@ export function StoredWeeklyReports({ reports, loading, onViewReport }: StoredWe
       <div className="mt-6 pt-4 border-t border-gray-200">
         <div className="text-sm text-gray-500">
           <p>📅 <strong>Automatic Generation:</strong> Reports are automatically generated every Friday at 12:00 PM PST</p>
-          <p>🔔 <strong>Notifications:</strong> You'll receive a browser notification when a new report is ready</p>
-          <p>📊 <strong>No Manual Action Required:</strong> Reports are created automatically based on your team's standup data</p>
         </div>
       </div>
     </div>

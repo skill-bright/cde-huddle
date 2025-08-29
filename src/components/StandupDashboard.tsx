@@ -21,7 +21,7 @@ export default function StandupDashboard() {
     weeklyReport,
     weeklyReportLoading,
     weeklyReportError,
-
+    setWeeklyReport,
     getPreviousWeekDates,
     storedWeeklyReports,
     storedReportsLoading,
@@ -65,11 +65,10 @@ export default function StandupDashboard() {
   const handleViewStoredReport = useCallback((report: StoredWeeklyReport) => {
     // Set the stored report as the current report
     if (report.reportData) {
-      // This would need to be implemented in the useStandupData hook
-      // For now, we'll just log it
-      console.log('Viewing stored report:', report);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setWeeklyReport(report.reportData as any);
     }
-  }, []);
+  }, [setWeeklyReport]);
 
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
@@ -279,7 +278,7 @@ export default function StandupDashboard() {
             report={weeklyReport}
             loading={weeklyReportLoading}
             error={weeklyReportError}
-
+            setWeeklyReport={setWeeklyReport}
             getPreviousWeekDates={getPreviousWeekDates}
             storedReports={storedWeeklyReports}
             storedReportsLoading={storedReportsLoading}

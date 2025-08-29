@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseService } from '../lib/supabase';
 
 const VANCOUVER_TIMEZONE = 'America/Vancouver';
 
@@ -12,7 +12,7 @@ const getVancouverTime = () => {
 };
 
 /**
- * Check if it's Friday at 12 PM PST
+ * Check if it's Friday at 12 PM PST (with a 5-minute window)
  */
 const isFridayAtNoon = () => {
   const vancouverTime = new Date(getVancouverTime());
@@ -20,7 +20,11 @@ const isFridayAtNoon = () => {
   const hour = vancouverTime.getHours();
   const minute = vancouverTime.getMinutes();
   
-  return dayOfWeek === 5 && hour === 12 && minute === 0;
+  // Allow a 5-minute window around 12 PM (11:55 AM to 12:05 PM)
+  const isFriday = dayOfWeek === 5;
+  const isAroundNoon = (hour === 11 && minute >= 55) || (hour === 12 && minute <= 5);
+  
+  return isFriday && isAroundNoon;
 };
 
 /**
@@ -188,9 +192,13 @@ const generateBasicWeeklyReport = async (weekStart: string, weekEnd: string): Pr
 /**
  * Save the generated report to the database
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const saveWeeklyReport = async (report: any): Promise<void> => {
   try {
-    const { error } = await supabase
+    // Use service role client if available, otherwise fall back to regular client
+    const client = supabaseService || supabase;
+    
+    const { error } = await client
       .from('weekly_reports')
       .insert({
         week_start: report.weekStart,
@@ -224,7 +232,10 @@ const saveWeeklyReport = async (report: any): Promise<void> => {
  */
 const checkExistingReport = async (weekStart: string, weekEnd: string): Promise<boolean> => {
   try {
-    const { data, error } = await supabase
+    // Use service role client if available, otherwise fall back to regular client
+    const client = supabaseService || supabase;
+    
+    const { data, error } = await client
       .from('weekly_reports')
       .select('id')
       .eq('week_start', weekStart)
@@ -256,6 +267,13 @@ const checkExistingReport = async (weekStart: string, weekEnd: string): Promise<
 export const checkAndGenerateWeeklyReport = async (): Promise<void> => {
   try {
     // Check if it's Friday at 12 PM PST
+    const vancouverTime = new Date(getVancouverTime());
+    const dayOfWeek = vancouverTime.getDay();
+    const hour = vancouverTime.getHours();
+    const minute = vancouverTime.getMinutes();
+    
+    console.log(`Scheduler check: Day ${dayOfWeek} (${dayOfWeek === 5 ? 'Friday' : 'Not Friday'}), Time ${hour}:${minute.toString().padStart(2, '0')}`);
+    
     if (!isFridayAtNoon()) {
       return;
     }
@@ -285,7 +303,64 @@ export const checkAndGenerateWeeklyReport = async (): Promise<void> => {
     // Save error to database
     try {
       const { weekStart, weekEnd } = getCurrentWeekDates();
-      const { error: saveError } = await supabase
+      const client = supabaseService || supabase;
+      
+      const { error: saveError } = await client
+        .from('weekly_reports')
+        .insert({
+          week_start: weekStart,
+          week_end: weekEnd,
+          generated_at: new Date().toISOString(),
+          status: 'failed',
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+      
+      if (saveError && saveError.code === 'PGRST205') {
+        console.log('Weekly reports table not found. Skipping error save.');
+      } else if (saveError) {
+        console.error('Error saving failed report:', saveError);
+      }
+    } catch (saveError) {
+      console.error('Error saving failed report:', saveError);
+    }
+  }
+};
+
+/**
+ * Manual trigger to generate weekly report
+ */
+export const generateWeeklyReportManually = async (): Promise<void> => {
+  try {
+    console.log('Manually triggering weekly report generation...');
+    
+    const { weekStart, weekEnd } = getCurrentWeekDates();
+    
+    // Check if report already exists for this week
+    const reportExists = await checkExistingReport(weekStart, weekEnd);
+    if (reportExists) {
+      console.log('Weekly report already exists for this week');
+      return;
+    }
+
+    console.log(`Generating weekly report for ${weekStart} to ${weekEnd}...`);
+    
+    // Generate the report
+    const report = await generateBasicWeeklyReport(weekStart, weekEnd);
+    
+    // Save to database
+    await saveWeeklyReport(report);
+    
+    console.log('Weekly report generated and saved successfully');
+    
+  } catch (error) {
+    console.error('Error in manual weekly report generation:', error);
+    
+    // Save error to database
+    try {
+      const { weekStart, weekEnd } = getCurrentWeekDates();
+      const client = supabaseService || supabase;
+      
+      const { error: saveError } = await client
         .from('weekly_reports')
         .insert({
           week_start: weekStart,

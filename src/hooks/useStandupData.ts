@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { TeamMember, StandupEntry, WeeklyReport, WeeklyReportFilters, StoredWeeklyReport } from '../types';
 import { generateWeeklySummary } from '../utils/aiUtils';
-import { startWeeklyReportScheduler } from '../utils/scheduler';
+import { startWeeklyReportScheduler, generateWeeklyReportManually } from '../utils/scheduler';
 
 // ============================================================================
 // DATE UTILITIES
@@ -690,7 +690,9 @@ export function useStandupData() {
     weeklyReport,
     weeklyReportLoading,
     weeklyReportError,
+    setWeeklyReport,
     generateWeeklyReport,
+    generateWeeklyReportManually,
     getPreviousWeekDates,
     // Stored weekly reports
     storedWeeklyReports,
