@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Plus, Users, Calendar, Target, History, ChevronDown, ChevronUp, Loader2, FileText } from 'lucide-react';
 import TeamMemberCard from './TeamMemberCard';
 import AddUpdateModal from './AddUpdateModal';
@@ -8,7 +9,15 @@ import { TeamMember, StoredWeeklyReport } from '../types';
 import { useStandupData } from '../hooks/useStandupData';
 import { getPreviousBusinessDay } from '../utils/dateUtils';
 
-export default function StandupDashboard() {
+interface StandupDashboardProps {
+  initialTab?: 'daily' | 'weekly';
+}
+
+export default function StandupDashboard({ initialTab = 'daily' }: StandupDashboardProps) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  
   const { 
     teamMembers, 
     standupHistory, 
@@ -31,7 +40,38 @@ export default function StandupDashboard() {
   const [editingMember, setEditingMember] = useState<TeamMember | undefined>();
   const [showHistory, setShowHistory] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'daily' | 'weekly'>('daily');
+  const [activeTab, setActiveTab] = useState<'daily' | 'weekly'>(initialTab);
+
+  // Handle URL changes and sync with active tab
+  useEffect(() => {
+    if (location.pathname === '/weekly-reports' && activeTab !== 'weekly') {
+      setActiveTab('weekly');
+    } else if (location.pathname === '/' && activeTab !== 'daily') {
+      setActiveTab('daily');
+    }
+  }, [location.pathname, activeTab]);
+
+  // Handle loading reports from URL parameters
+  useEffect(() => {
+    const reportId = params.get('report');
+    if (reportId && storedWeeklyReports.length > 0) {
+      const report = storedWeeklyReports.find(r => r.id === reportId);
+      if (report && report.reportData) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setWeeklyReport(report.reportData as any);
+      }
+    }
+  }, [params, storedWeeklyReports, setWeeklyReport]);
+
+  // Handle tab changes and update URL
+  const handleTabChange = useCallback((tab: 'daily' | 'weekly') => {
+    setActiveTab(tab);
+    if (tab === 'weekly') {
+      navigate('/weekly-reports');
+    } else {
+      navigate('/');
+    }
+  }, [navigate]);
 
   const handleSaveMember = useCallback(async (member: TeamMember) => {
     setSaving(true);
@@ -67,8 +107,10 @@ export default function StandupDashboard() {
     if (report.reportData) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setWeeklyReport(report.reportData as any);
+      // Update URL to include report ID
+      navigate(`/weekly-reports?report=${report.id}`);
     }
-  }, [setWeeklyReport]);
+  }, [setWeeklyReport, navigate]);
 
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
@@ -129,9 +171,7 @@ export default function StandupDashboard() {
           <div className="border-b border-gray-200">
             <nav className="-mb-px flex space-x-8">
               <button
-                onClick={async () => {
-                  setActiveTab('daily');
-                }}
+                onClick={() => handleTabChange('daily')}
                 className={`py-2 px-1 border-b-2 font-medium text-sm ${
                   activeTab === 'daily'
                     ? 'border-blue-500 text-blue-600'
@@ -144,9 +184,7 @@ export default function StandupDashboard() {
                 </div>
               </button>
               <button
-                onClick={async () => {
-                  setActiveTab('weekly');
-                }}
+                onClick={() => handleTabChange('weekly')}
                 className={`py-2 px-1 border-b-2 font-medium text-sm ${
                   activeTab === 'weekly'
                     ? 'border-blue-500 text-blue-600'
