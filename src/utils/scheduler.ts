@@ -28,22 +28,29 @@ const isFridayAtNoon = () => {
 };
 
 /**
- * Get the start and end dates for the current week (Monday to Sunday)
+ * Get the start and end dates for the previous week (Monday to Sunday)
+ * This is used for generating weekly reports on Friday
  */
-const getCurrentWeekDates = () => {
+const getPreviousWeekDates = () => {
   const today = new Date();
   const dayOfWeek = today.getDay();
   const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
   
-  const monday = new Date(today);
-  monday.setDate(today.getDate() - daysToMonday);
+  // Get the Monday of the current week
+  const currentMonday = new Date(today);
+  currentMonday.setDate(today.getDate() - daysToMonday);
   
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
+  // Get the Monday of the previous week
+  const previousMonday = new Date(currentMonday);
+  previousMonday.setDate(currentMonday.getDate() - 7);
+  
+  // Get the Sunday of the previous week
+  const previousSunday = new Date(previousMonday);
+  previousSunday.setDate(previousMonday.getDate() + 6);
   
   return {
-    weekStart: monday.toISOString().split('T')[0],
-    weekEnd: sunday.toISOString().split('T')[0]
+    weekStart: previousMonday.toISOString().split('T')[0],
+    weekEnd: previousSunday.toISOString().split('T')[0]
   };
 };
 
@@ -278,7 +285,7 @@ export const checkAndGenerateWeeklyReport = async (): Promise<void> => {
       return;
     }
 
-    const { weekStart, weekEnd } = getCurrentWeekDates();
+    const { weekStart, weekEnd } = getPreviousWeekDates();
     
     // Check if report already exists for this week
     const reportExists = await checkExistingReport(weekStart, weekEnd);
@@ -302,7 +309,7 @@ export const checkAndGenerateWeeklyReport = async (): Promise<void> => {
     
     // Save error to database
     try {
-      const { weekStart, weekEnd } = getCurrentWeekDates();
+      const { weekStart, weekEnd } = getPreviousWeekDates();
       const client = supabaseService || supabase;
       
       const { error: saveError } = await client
@@ -327,13 +334,13 @@ export const checkAndGenerateWeeklyReport = async (): Promise<void> => {
 };
 
 /**
- * Manual trigger to generate weekly report
+ * Manual trigger to generate weekly report for the previous week
  */
 export const generateWeeklyReportManually = async (): Promise<void> => {
   try {
     console.log('Manually triggering weekly report generation...');
     
-    const { weekStart, weekEnd } = getCurrentWeekDates();
+    const { weekStart, weekEnd } = getPreviousWeekDates();
     
     // Check if report already exists for this week
     const reportExists = await checkExistingReport(weekStart, weekEnd);
@@ -357,7 +364,7 @@ export const generateWeeklyReportManually = async (): Promise<void> => {
     
     // Save error to database
     try {
-      const { weekStart, weekEnd } = getCurrentWeekDates();
+      const { weekStart, weekEnd } = getPreviousWeekDates();
       const client = supabaseService || supabase;
       
       const { error: saveError } = await client
@@ -378,6 +385,34 @@ export const generateWeeklyReportManually = async (): Promise<void> => {
     } catch (saveError) {
       console.error('Error saving failed report:', saveError);
     }
+  }
+};
+
+/**
+ * Generate a report for a specific week (for fixing missing reports)
+ */
+export const generateReportForWeek = async (weekStart: string, weekEnd: string): Promise<void> => {
+  try {
+    console.log(`Generating report for specific week: ${weekStart} to ${weekEnd}`);
+    
+    // Check if report already exists for this week
+    const reportExists = await checkExistingReport(weekStart, weekEnd);
+    if (reportExists) {
+      console.log('Weekly report already exists for this week');
+      return;
+    }
+
+    // Generate the report
+    const report = await generateBasicWeeklyReport(weekStart, weekEnd);
+    
+    // Save to database
+    await saveWeeklyReport(report);
+    
+    console.log('Weekly report generated and saved successfully');
+    
+  } catch (error) {
+    console.error('Error generating report for specific week:', error);
+    throw error;
   }
 };
 
