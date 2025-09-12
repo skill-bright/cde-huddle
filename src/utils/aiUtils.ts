@@ -28,6 +28,21 @@ export async function generateWeeklySummary(request: AISummaryRequest): Promise<
   try {
     const { weekStart, weekEnd, entries, customPrompt } = request;
     
+    // Check if API key is available
+    const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      console.error('🤖 VITE_ANTHROPIC_API_KEY is not set');
+      throw new Error('Anthropic API key is not configured');
+    }
+    
+    console.log('🤖 AI Summary Request:', {
+      weekStart,
+      weekEnd,
+      entriesCount: entries.length,
+      totalMembers: entries.reduce((acc, entry) => acc + entry.teamMembers.length, 0),
+      apiKeyConfigured: !!apiKey
+    });
+    
     // Prepare the data for AI analysis
     const weekData = entries.map(entry => ({
       date: entry.date,
@@ -40,51 +55,57 @@ export async function generateWeeklySummary(request: AISummaryRequest): Promise<
       }))
     }));
 
-    const systemPrompt = `You are an expert project manager and team analyst. Your task is to analyze a week's worth of daily standup data and provide a comprehensive summary that includes:
+    console.log('🤖 Prepared week data for AI:', weekData);
 
-1. Key Accomplishments: What major milestones or achievements were completed this week?
-2. Ongoing Work: What work is still in progress or planned for next week?
-3. Blockers: What obstacles or challenges were identified?
-4. Team Insights: Overall observations about team productivity, collaboration, and patterns
-5. Recommendations: Actionable suggestions for improving team performance or addressing issues
-6. Individual Member Summaries: For EACH team member, provide a detailed summary including:
-   - Their role
-   - Key contributions they made this week (extract from their daily updates)
-   - Progress summary (what they accomplished vs. what they planned)
-   - Any concerns or blockers they mentioned
-   - What they're focusing on next week (based on their "today" updates)
+    const systemPrompt = `You are a project manager creating a weekly standup summary. 
 
-IMPORTANT: You MUST provide memberSummaries for EVERY team member mentioned in the data. Extract specific information from their daily standup entries to create meaningful, personalized summaries. Be concise but specific about each person's contributions and progress.`;
+CRITICAL RULES:
+1. The memberSummaries object must use EXACT member names as keys (no quotes around the keys)
+2. Do NOT use generic field names like "role", "concerns", "progress" as keys
+3. Do NOT escape quotes in JSON keys - use clean member names directly
+4. Return ONLY valid JSON without any markdown formatting or code blocks
 
-    const userPrompt = customPrompt || `Please analyze the following standup data for the week of ${weekStart} to ${weekEnd} and provide a comprehensive summary:
+Return ONLY valid JSON in this exact format:
+{
+  "keyAccomplishments": ["accomplishment 1", "accomplishment 2"],
+  "ongoingWork": ["ongoing work 1", "ongoing work 2"], 
+  "blockers": ["blocker 1", "blocker 2"],
+  "teamInsights": "Brief team observation",
+  "recommendations": ["recommendation 1", "recommendation 2"],
+  "memberSummaries": {
+    "Francois": {
+      "role": "Developer",
+      "keyContributions": ["contribution 1", "contribution 2"],
+      "progress": "Brief progress summary",
+      "concerns": ["concern 1"],
+      "nextWeekFocus": "What they're focusing on next"
+    },
+    "Atena": {
+      "role": "Developer",
+      "keyContributions": ["contribution 1", "contribution 2"],
+      "progress": "Brief progress summary", 
+      "concerns": ["concern 1"],
+      "nextWeekFocus": "What they're focusing on next"
+    }
+  }
+}`;
+
+    const memberNames = weekData.flatMap(entry => entry.teamMembers.map(member => member.name)).filter((name, index, arr) => arr.indexOf(name) === index);
+    
+    const userPrompt = customPrompt || `Analyze this standup data for ${weekStart} to ${weekEnd}:
 
 ${JSON.stringify(weekData, null, 2)}
 
-CRITICAL: You must analyze each team member's daily updates and create individual summaries. Look at their "yesterday", "today", and "blockers" entries across all days to understand their work patterns and contributions.
+IMPORTANT: The team members are: ${memberNames.join(', ')}
 
-Please structure your response as a JSON object with the following format:
-{
-  "keyAccomplishments": ["accomplishment 1", "accomplishment 2"],
-  "ongoingWork": ["ongoing work 1", "ongoing work 2"],
-  "blockers": ["blocker 1", "blocker 2"],
-  "teamInsights": "Overall team insights and observations",
-  "recommendations": ["recommendation 1", "recommendation 2"],
-  "memberSummaries": {
-    "EXACT_MEMBER_NAME_FROM_DATA": {
-      "role": "Member's role from the data",
-      "keyContributions": ["Specific contributions extracted from their daily updates"],
-      "progress": "Summary of what they accomplished vs. what they planned",
-      "concerns": ["Any blockers or concerns they mentioned"],
-      "nextWeekFocus": "What they're planning to work on based on their 'today' updates"
-    }
-  }
-}
+Create a summary with:
+1. Team accomplishments, ongoing work, and blockers
+2. Individual summaries for each team member
 
-IMPORTANT: 
-- Use the EXACT member names as they appear in the data
-- Extract specific information from their daily standup entries
-- Make sure every team member gets a summary
-- Be concise but specific about each person's work`;
+CRITICAL: In memberSummaries, use ONLY these exact names as keys: ${memberNames.join(', ')}
+Do NOT use any other keys like "role", "concerns", "progress", etc.
+
+Return only valid JSON.`;
 
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
@@ -100,21 +121,111 @@ IMPORTANT:
 
     const content = message.content[0];
     if (content.type === 'text') {
+      console.log('🤖 AI Response received:', content.text.substring(0, 500) + '...');
       try {
+        // Clean the response text to extract JSON
+        let jsonText = content.text.trim();
+        
+        // Remove markdown code blocks if present
+        if (jsonText.startsWith('```json')) {
+          jsonText = jsonText.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+        } else if (jsonText.startsWith('```')) {
+          jsonText = jsonText.replace(/^```\s*/, '').replace(/\s*```$/, '');
+        }
+        
         // Try to parse the JSON response
-        const summary = JSON.parse(content.text);
+        const summary = JSON.parse(jsonText);
+        console.log('🤖 Parsed AI summary:', {
+          keyAccomplishments: summary.keyAccomplishments?.length || 0,
+          ongoingWork: summary.ongoingWork?.length || 0,
+          blockers: summary.blockers?.length || 0,
+          memberSummaries: Object.keys(summary.memberSummaries || {}).length,
+          memberNames: Object.keys(summary.memberSummaries || {}),
+          fullMemberSummaries: summary.memberSummaries
+        });
+        
+        // Clean up malformed member summaries - only keep valid member names
+        const cleanedMemberSummaries: Record<string, any> = {};
+        if (summary.memberSummaries) {
+          const validMemberNames = weekData.flatMap(entry => entry.teamMembers.map(member => member.name)).filter((name, index, arr) => arr.indexOf(name) === index);
+          
+          Object.entries(summary.memberSummaries).forEach(([key, value]) => {
+            // Clean the key by removing quotes and checking if it's a valid member name
+            const cleanKey = key.replace(/^["']|["']$/g, ''); // Remove surrounding quotes
+            
+            // Only keep keys that match actual member names (case-insensitive)
+            const matchingMemberName = validMemberNames.find(name => 
+              name.toLowerCase() === cleanKey.toLowerCase()
+            );
+            
+            if (matchingMemberName && typeof value === 'object' && value !== null) {
+              cleanedMemberSummaries[matchingMemberName] = value;
+            }
+          });
+        }
+        
+        console.log('🤖 Cleaned member summaries:', {
+          originalKeys: Object.keys(summary.memberSummaries || {}),
+          cleanedKeys: Object.keys(cleanedMemberSummaries),
+          cleanedSummaries: cleanedMemberSummaries
+        });
+        
+        // If no valid member summaries were generated, create them from the data
+        if (Object.keys(cleanedMemberSummaries).length === 0) {
+          console.log('🤖 No valid member summaries found, generating from data');
+          const validMemberNames = weekData.flatMap(entry => entry.teamMembers.map(member => member.name)).filter((name, index, arr) => arr.indexOf(name) === index);
+          
+          validMemberNames.forEach(memberName => {
+            const memberEntries = weekData.flatMap(entry => entry.teamMembers.filter(member => member.name === memberName));
+            const role = memberEntries[0]?.role || 'Developer';
+            
+            // Extract meaningful contributions from yesterday's work
+            const contributions = memberEntries
+              .map(entry => entry.yesterday)
+              .filter(Boolean)
+              .map(work => {
+                // Extract first meaningful sentence or bullet point
+                const cleanWork = work.replace(/<[^>]*>/g, '').trim();
+                return cleanWork.split(/[.!?]/)[0] || cleanWork.substring(0, 100);
+              })
+              .slice(0, 3);
+            
+            // Extract concerns from blockers
+            const concerns = memberEntries
+              .map(entry => entry.blockers)
+              .filter(blocker => blocker && blocker !== '<p>None</p>' && blocker.trim())
+              .map(blocker => blocker.replace(/<[^>]*>/g, '').trim())
+              .filter(Boolean);
+            
+            // Get latest focus from today's work
+            const latestFocus = memberEntries
+              .map(entry => entry.today)
+              .filter(Boolean)
+              .slice(-1)[0];
+            
+            cleanedMemberSummaries[memberName] = {
+              role: role,
+              keyContributions: contributions.length > 0 ? contributions : [`Worked on ${memberEntries.length} day(s) this week`],
+              progress: `Completed work on ${memberEntries.length} day(s) this week with ${contributions.length} key contributions`,
+              concerns: concerns.length > 0 ? concerns : ['No blockers reported'],
+              nextWeekFocus: latestFocus ? latestFocus.replace(/<[^>]*>/g, '').substring(0, 200) : 'Continue current project work'
+            };
+          });
+        }
+        
         return {
           keyAccomplishments: summary.keyAccomplishments || [],
           ongoingWork: summary.ongoingWork || [],
           blockers: summary.blockers || [],
           teamInsights: summary.teamInsights || '',
           recommendations: summary.recommendations || [],
-          memberSummaries: summary.memberSummaries || {}
+          memberSummaries: cleanedMemberSummaries
         };
-              } catch {
-          // If JSON parsing fails, extract insights from the text
-          return extractInsightsFromText(content.text);
-        }
+      } catch (parseError) {
+        console.error('🤖 JSON parsing failed, using fallback extraction:', parseError);
+        // If JSON parsing fails, extract insights from the text
+        return extractInsightsFromText(content.text);
+      }
     }
 
     throw new Error('Failed to generate AI summary');
@@ -393,5 +504,55 @@ export async function generateFullReport(memberName: string, memberRole: string,
       today: 'AI generation failed. Please enter your today update manually.',
       blockers: 'AI generation failed. Please enter your blockers manually.'
     };
+  }
+}
+
+/**
+ * Regenerate AI summary for an existing weekly report
+ * This is useful for fixing malformed summaries or updating with better AI prompts
+ */
+export async function regenerateWeeklySummary(report: any): Promise<WeeklyReportSummary> {
+  try {
+    console.log('🔄 Regenerating AI summary for existing report:', {
+      weekStart: report.weekStart,
+      weekEnd: report.weekEnd,
+      entriesCount: report.entries?.length || 0
+    });
+
+    if (!report.entries || report.entries.length === 0) {
+      throw new Error('No entries found in report to regenerate summary');
+    }
+
+    // Convert the report entries to the format expected by generateWeeklySummary
+    const entries = report.entries.map((entry: any) => ({
+      date: entry.date,
+      teamMembers: entry.teamMembers.map((member: any) => ({
+        name: member.name,
+        role: member.role,
+        yesterday: member.yesterday,
+        today: member.today,
+        blockers: member.blockers
+      }))
+    }));
+
+    // Generate new summary using the improved AI logic
+    const newSummary = await generateWeeklySummary({
+      weekStart: report.weekStart,
+      weekEnd: report.weekEnd,
+      entries: entries
+    });
+
+    console.log('✅ Successfully regenerated AI summary:', {
+      keyAccomplishments: newSummary.keyAccomplishments?.length || 0,
+      ongoingWork: newSummary.ongoingWork?.length || 0,
+      blockers: newSummary.blockers?.length || 0,
+      memberSummaries: Object.keys(newSummary.memberSummaries || {}).length,
+      memberNames: Object.keys(newSummary.memberSummaries || {})
+    });
+
+    return newSummary;
+  } catch (error) {
+    console.error('Failed to regenerate weekly summary:', error);
+    throw error;
   }
 }

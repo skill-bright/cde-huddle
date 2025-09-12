@@ -84,6 +84,42 @@ const getPreviousWeekDates = () => {
 };
 
 /**
+ * Generate a weekly report with AI if available, otherwise use basic generation
+ */
+const generateWeeklyReportWithAI = async (weekStart: string, weekEnd: string): Promise<unknown> => {
+  try {
+    // First try to generate with AI
+    const basicReport = await generateBasicWeeklyReport(weekStart, weekEnd) as any;
+    
+    // If we have entries, try AI generation
+    if (basicReport.entries && basicReport.entries.length > 0) {
+      try {
+        const { generateWeeklySummary } = await import('./aiUtils');
+        const aiSummary = await generateWeeklySummary({
+          weekStart,
+          weekEnd,
+          entries: basicReport.entries
+        });
+        
+        return {
+          ...basicReport,
+          summary: aiSummary
+        };
+      } catch (aiError) {
+        console.error('AI generation failed, using basic summary:', aiError);
+        // Fall back to basic summary
+        return basicReport;
+      }
+    }
+    
+    return basicReport;
+  } catch (error) {
+    console.error('Error generating weekly report:', error);
+    throw error;
+  }
+};
+
+/**
  * Generate a basic weekly report without AI
  */
 const generateBasicWeeklyReport = async (weekStart: string, weekEnd: string): Promise<unknown> => {
@@ -202,13 +238,59 @@ const generateBasicWeeklyReport = async (weekStart: string, weekEnd: string): Pr
       });
     });
 
+    // Generate member summaries
+    const memberSummaries: Record<string, any> = {};
+    const memberDataMap = new Map<string, { role: string; accomplishments: string[]; ongoingWork: string[]; blockers: string[] }>();
+
+    entries.forEach(entry => {
+      entry.teamMembers.forEach(member => {
+        if (!memberDataMap.has(member.name)) {
+          memberDataMap.set(member.name, {
+            role: member.role,
+            accomplishments: [],
+            ongoingWork: [],
+            blockers: []
+          });
+        }
+
+        const memberData = memberDataMap.get(member.name)!;
+
+        if (member.yesterday && member.yesterday.trim()) {
+          memberData.accomplishments.push(member.yesterday);
+        }
+        if (member.today && member.today.trim()) {
+          memberData.ongoingWork.push(member.today);
+        }
+        if (member.blockers && member.blockers.trim()) {
+          memberData.blockers.push(member.blockers);
+        }
+      });
+    });
+
+    // Generate member summaries
+    memberDataMap.forEach((data, memberName) => {
+      memberSummaries[memberName] = {
+        role: data.role,
+        keyContributions: data.accomplishments.slice(0, 5), // Top 5 accomplishments
+        progress: `Completed ${data.accomplishments.length} tasks, with ${data.ongoingWork.length} ongoing items`,
+        concerns: data.blockers,
+        nextWeekFocus: data.ongoingWork.length > 0 ? data.ongoingWork[data.ongoingWork.length - 1] : 'No specific focus identified'
+      };
+    });
+
+    console.log('📊 Scheduler generated member summaries:', {
+      memberCount: memberDataMap.size,
+      memberNames: Array.from(memberDataMap.keys()),
+      memberSummaries: Object.keys(memberSummaries)
+    });
+
     const summary = {
       keyAccomplishments: allAccomplishments.slice(0, 10),
       ongoingWork: allOngoingWork.slice(0, 10),
       blockers: allBlockers.slice(0, 10),
       teamInsights: `Auto-generated basic summary for ${entries.length} days with ${allAccomplishments.length} accomplishments, ${allOngoingWork.length} ongoing tasks, and ${allBlockers.length} blockers.`,
       recommendations: [],
-      memberSummaries: {}
+      memberSummaries
     };
 
     return {
@@ -270,6 +352,8 @@ const checkExistingReport = async (weekStart: string, weekEnd: string): Promise<
   try {
     // Use service role client if available, otherwise fall back to regular client
     const client = supabaseService || supabase;
+
+    console.log('Checking existing report for week:', weekStart, weekEnd);
     
     const { data, error } = await client
       .from('weekly_reports')
@@ -325,8 +409,8 @@ export const checkAndGenerateWeeklyReport = async (): Promise<void> => {
 
     console.log('Generating automatic weekly report...');
     
-    // Generate the report
-    const report = await generateBasicWeeklyReport(weekStart, weekEnd);
+    // Generate the report with AI if available
+    const report = await generateWeeklyReportWithAI(weekStart, weekEnd);
     
     // Save to database
     await saveWeeklyReport(report);
@@ -388,8 +472,8 @@ export const generateWeeklyReportManually = async (): Promise<void> => {
 
     console.log(`Generating weekly report for ${weekStart} to ${weekEnd}...`);
     
-    // Generate the report
-    const report = await generateBasicWeeklyReport(weekStart, weekEnd);
+    // Generate the report with AI if available
+    const report = await generateWeeklyReportWithAI(weekStart, weekEnd);
     
     // Save to database
     await saveWeeklyReport(report);
@@ -434,6 +518,69 @@ export const generateWeeklyReportManually = async (): Promise<void> => {
 };
 
 /**
+ * Manual trigger to generate weekly report for the current week
+ */
+export const generateCurrentWeekReportManually = async (): Promise<void> => {
+  try {
+    console.log('Manually triggering current week report generation...');
+    
+    const { weekStart, weekEnd } = getCurrentWeekDates();
+    
+    // Check if report already exists for this week
+    const reportExists = await checkExistingReport(weekStart, weekEnd);
+    if (reportExists) {
+      console.log('Weekly report already exists for this week');
+      return;
+    }
+
+    console.log(`Generating weekly report for ${weekStart} to ${weekEnd}...`);
+    
+    // Generate the report with AI if available
+    const report = await generateWeeklyReportWithAI(weekStart, weekEnd);
+    
+    // Save to database
+    await saveWeeklyReport(report);
+    
+    console.log('Weekly report generated and saved successfully');
+    
+  } catch (error) {
+    console.error('Error generating current week report manually:', error);
+    
+    // Save error to database (only if no report exists for this week)
+    try {
+      const { weekStart, weekEnd } = getCurrentWeekDates();
+      
+      // Check if report already exists before trying to save error
+      const reportExists = await checkExistingReport(weekStart, weekEnd);
+      if (reportExists) {
+        console.log('Weekly report already exists for this week, skipping error save.');
+        return;
+      }
+      
+      const client = supabaseService || supabase;
+      
+      const { error: saveError } = await client
+        .from('weekly_reports')
+        .insert({
+          week_start: weekStart,
+          week_end: weekEnd,
+          generated_at: new Date().toISOString(),
+          status: 'failed',
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+      
+      if (saveError && saveError.code === 'PGRST205') {
+        console.log('Weekly reports table not found. Skipping error save.');
+      } else if (saveError) {
+        console.error('Error saving failed report:', saveError);
+      }
+    } catch (saveError) {
+      console.error('Error saving failed report to database:', saveError);
+    }
+  }
+};
+
+/**
  * Generate a report for a specific week (for fixing missing reports)
  */
 export const generateReportForWeek = async (weekStart: string, weekEnd: string): Promise<void> => {
@@ -447,8 +594,8 @@ export const generateReportForWeek = async (weekStart: string, weekEnd: string):
       return;
     }
 
-    // Generate the report
-    const report = await generateBasicWeeklyReport(weekStart, weekEnd);
+    // Generate the report with AI if available
+    const report = await generateWeeklyReportWithAI(weekStart, weekEnd);
     
     // Save to database
     await saveWeeklyReport(report);

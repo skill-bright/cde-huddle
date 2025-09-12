@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { TeamMember, StandupEntry, WeeklyReport, WeeklyReportFilters, StoredWeeklyReport } from '../types';
 import { generateWeeklySummary } from '../utils/aiUtils';
-import { startWeeklyReportScheduler, generateWeeklyReportManually } from '../utils/scheduler';
+import { startWeeklyReportScheduler, generateWeeklyReportManually, generateCurrentWeekReportManually } from '../utils/scheduler';
 
 // ============================================================================
 // DATE UTILITIES
@@ -501,26 +501,48 @@ export function useStandupData() {
       let summary;
       if (filters.includeAI && entries.length > 0) {
         try {
+          console.log('🤖 Generating AI summary for', entries.length, 'entries');
+          console.log('🤖 Entries data:', entries);
           summary = await generateWeeklySummary({
             weekStart,
             weekEnd,
             entries,
             customPrompt: filters.customPrompt
           });
+          console.log('🤖 AI summary generated successfully:', {
+            keyAccomplishments: summary.keyAccomplishments.length,
+            ongoingWork: summary.ongoingWork.length,
+            blockers: summary.blockers.length,
+            memberSummaries: Object.keys(summary.memberSummaries).length,
+            memberSummariesKeys: Object.keys(summary.memberSummaries),
+            fullMemberSummaries: summary.memberSummaries
+          });
         } catch (aiError) {
           console.error('AI summary generation failed:', aiError);
-          summary = {
-            keyAccomplishments: [],
-            ongoingWork: [],
-            blockers: [],
-            teamInsights: 'AI summary generation failed. Please review the data manually.',
-            recommendations: [],
-            memberSummaries: {}
-          };
+          console.log('📊 Falling back to basic summary generation');
+          summary = generateBasicSummary(entries);
+          console.log('📊 Fallback basic summary generated:', {
+            keyAccomplishments: summary.keyAccomplishments.length,
+            ongoingWork: summary.ongoingWork.length,
+            blockers: summary.blockers.length,
+            memberSummaries: Object.keys(summary.memberSummaries).length,
+            memberSummariesKeys: Object.keys(summary.memberSummaries),
+            fullMemberSummaries: summary.memberSummaries
+          });
         }
       } else {
         // Generate basic summary without AI
+        console.log('📊 Generating basic summary (no AI)');
+        console.log('📊 Entries data:', entries);
         summary = generateBasicSummary(entries);
+        console.log('📊 Basic summary generated:', {
+          keyAccomplishments: summary.keyAccomplishments.length,
+          ongoingWork: summary.ongoingWork.length,
+          blockers: summary.blockers.length,
+          memberSummaries: Object.keys(summary.memberSummaries).length,
+          memberSummariesKeys: Object.keys(summary.memberSummaries),
+          fullMemberSummaries: summary.memberSummaries
+        });
       }
 
       const report: WeeklyReport = {
@@ -541,22 +563,67 @@ export function useStandupData() {
   };
 
   const generateBasicSummary = (entries: StandupEntry[]) => {
+    console.log('📊 generateBasicSummary called with entries:', entries);
+    
     const allAccomplishments: string[] = [];
     const allOngoingWork: string[] = [];
     const allBlockers: string[] = [];
+    const memberSummaries: Record<string, any> = {};
+
+    // Collect unique team members
+    const uniqueMembers = new Map<string, { role: string; accomplishments: string[]; ongoingWork: string[]; blockers: string[] }>();
 
     entries.forEach(entry => {
+      console.log('📊 Processing entry:', entry.date, 'with', entry.teamMembers.length, 'members');
       entry.teamMembers.forEach(member => {
+        console.log('📊 Processing member:', member.name, 'role:', member.role);
+        console.log('📊 Member data:', {
+          yesterday: member.yesterday?.substring(0, 100) + '...',
+          today: member.today?.substring(0, 100) + '...',
+          blockers: member.blockers?.substring(0, 100) + '...'
+        });
+        
+        if (!uniqueMembers.has(member.name)) {
+          uniqueMembers.set(member.name, {
+            role: member.role,
+            accomplishments: [],
+            ongoingWork: [],
+            blockers: []
+          });
+        }
+
+        const memberData = uniqueMembers.get(member.name)!;
+
         if (member.yesterday && member.yesterday.trim()) {
           allAccomplishments.push(`${member.name}: ${member.yesterday}`);
+          memberData.accomplishments.push(member.yesterday);
         }
         if (member.today && member.today.trim()) {
           allOngoingWork.push(`${member.name}: ${member.today}`);
+          memberData.ongoingWork.push(member.today);
         }
         if (member.blockers && member.blockers.trim()) {
           allBlockers.push(`${member.name}: ${member.blockers}`);
+          memberData.blockers.push(member.blockers);
         }
       });
+    });
+
+    // Generate member summaries
+    uniqueMembers.forEach((data, memberName) => {
+      memberSummaries[memberName] = {
+        role: data.role,
+        keyContributions: data.accomplishments.slice(0, 5), // Top 5 accomplishments
+        progress: `Completed ${data.accomplishments.length} tasks, with ${data.ongoingWork.length} ongoing items`,
+        concerns: data.blockers,
+        nextWeekFocus: data.ongoingWork.length > 0 ? data.ongoingWork[data.ongoingWork.length - 1] : 'No specific focus identified'
+      };
+    });
+
+    console.log('📊 Generated member summaries:', {
+      memberCount: uniqueMembers.size,
+      memberNames: Array.from(uniqueMembers.keys()),
+      memberSummaries: Object.keys(memberSummaries)
     });
 
     return {
@@ -565,7 +632,7 @@ export function useStandupData() {
       blockers: allBlockers.slice(0, 10),
       teamInsights: `Generated basic summary for ${entries.length} days with ${allAccomplishments.length} accomplishments, ${allOngoingWork.length} ongoing tasks, and ${allBlockers.length} blockers.`,
       recommendations: [],
-      memberSummaries: {}
+      memberSummaries
     };
   };
 
@@ -693,6 +760,7 @@ export function useStandupData() {
     setWeeklyReport,
     generateWeeklyReport,
     generateWeeklyReportManually,
+    generateCurrentWeekReportManually,
     getPreviousWeekDates,
     // Stored weekly reports
     storedWeeklyReports,

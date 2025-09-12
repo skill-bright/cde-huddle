@@ -30,6 +30,7 @@ export default function StandupDashboard({ initialTab = 'daily' }: StandupDashbo
     weeklyReportLoading,
     weeklyReportError,
     setWeeklyReport,
+    generateCurrentWeekReportManually,
     getPreviousWeekDates,
     storedWeeklyReports,
     storedReportsLoading,
@@ -39,6 +40,7 @@ export default function StandupDashboard({ initialTab = 'daily' }: StandupDashbo
   const [editingMember, setEditingMember] = useState<TeamMember | undefined>();
   const [showHistory, setShowHistory] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [generatingReport, setGeneratingReport] = useState(false);
   const [activeTab, setActiveTab] = useState<'daily' | 'weekly'>(initialTab);
 
   // Handle URL changes and sync with active tab
@@ -114,6 +116,20 @@ export default function StandupDashboard({ initialTab = 'daily' }: StandupDashbo
       navigate(`/weekly-reports?report=${report.id}`);
     }
   }, [setWeeklyReport, navigate]);
+
+  const handleGenerateReportManually = useCallback(async () => {
+    setGeneratingReport(true);
+    try {
+      await generateCurrentWeekReportManually();
+      // Refresh the stored reports to show the newly generated report
+      // The hook should automatically refresh this, but we can trigger it manually if needed
+    } catch (error) {
+      console.error('Failed to generate weekly report:', error);
+      // Error handling is done in the hook
+    } finally {
+      setGeneratingReport(false);
+    }
+  }, [generateCurrentWeekReportManually]);
 
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
@@ -397,6 +413,8 @@ export default function StandupDashboard({ initialTab = 'daily' }: StandupDashbo
             storedReports={storedWeeklyReports}
             storedReportsLoading={storedReportsLoading}
             onViewStoredReport={handleViewStoredReport}
+            onGenerateReportManually={handleGenerateReportManually}
+            generatingReport={generatingReport}
           />
         )}
       </div>

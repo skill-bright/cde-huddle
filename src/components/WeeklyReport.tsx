@@ -1,7 +1,8 @@
 import { WeeklyReport as WeeklyReportType, StoredWeeklyReport, TeamMember } from '../types';
-import { Calendar, FileText, Users, TrendingUp, AlertTriangle, Lightbulb, Download, User, Clock, ArrowLeft } from 'lucide-react';
+import { Calendar, FileText, Users, TrendingUp, AlertTriangle, Lightbulb, Download, User, Clock, ArrowLeft, RefreshCw } from 'lucide-react';
 import { StoredWeeklyReports } from './StoredWeeklyReports';
 import { useState } from 'react';
+import { regenerateWeeklySummary } from '../utils/aiUtils';
 
 // Helper function to safely render HTML content
 const renderHtmlContent = (content: string) => {
@@ -35,6 +36,9 @@ interface WeeklyReportProps {
   storedReportsLoading: boolean;
   onViewStoredReport: (report: StoredWeeklyReport) => void;
   setWeeklyReport: (report: WeeklyReportType | null) => void;
+  onGenerateReportManually?: () => Promise<void>;
+  toGenerateReportManually?: boolean; 
+  generatingReport?: boolean;
 }
 
 export function WeeklyReport({ 
@@ -43,9 +47,13 @@ export function WeeklyReport({
   storedReports,
   storedReportsLoading,
   onViewStoredReport,
-  setWeeklyReport
+  setWeeklyReport,
+  onGenerateReportManually,
+  toGenerateReportManually = false,
+  generatingReport = false
 }: WeeklyReportProps) {
   const [activeTab, setActiveTab] = useState<string>('all');
+  const [regeneratingSummary, setRegeneratingSummary] = useState<boolean>(false);
 
   // Get unique team members from the report
   const getUniqueTeamMembers = (report: WeeklyReportType): TeamMember[] => {
@@ -78,6 +86,32 @@ export function WeeklyReport({
       month: 'long',
       day: 'numeric'
     });
+  };
+
+  const handleRegenerateSummary = async () => {
+    if (!report) return;
+    
+    try {
+      setRegeneratingSummary(true);
+      console.log('🔄 Regenerating AI summary for report:', report.weekStart, 'to', report.weekEnd);
+      
+      const newSummary = await regenerateWeeklySummary(report);
+      
+      // Update the report with the new summary
+      const updatedReport = {
+        ...report,
+        summary: newSummary
+      };
+      
+      setWeeklyReport(updatedReport);
+      console.log('✅ Successfully regenerated and updated AI summary');
+      
+    } catch (error) {
+      console.error('❌ Failed to regenerate AI summary:', error);
+      // You could add a toast notification here
+    } finally {
+      setRegeneratingSummary(false);
+    }
   };
 
   const exportToCSV = () => {
@@ -131,13 +165,34 @@ export function WeeklyReport({
               <p className="text-gray-600">Week of {formatDate(report.weekStart)} - {formatDate(report.weekEnd)}</p>
             </div>
           </div>
-          <button
-            onClick={exportToCSV}
-            className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-          >
-            <Download className="w-4 h-4" />
-            <span>Export CSV</span>
-          </button>
+          <div className="flex items-center gap-3">
+            {toGenerateReportManually && (
+              <button
+                onClick={onGenerateReportManually}
+                disabled={generatingReport}
+                className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {generatingReport ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Generating...</span>
+                  </>
+                ) : (
+                  <>
+                    <FileText className="w-4 h-4" />
+                    <span>Generate This Week</span>
+                  </>
+                )}
+              </button>
+            )}
+            <button
+              onClick={exportToCSV}
+              className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+            >
+              <Download className="w-4 h-4" />
+              <span>Export CSV</span>
+            </button>
+          </div>
         </div>
 
         {/* Error */}
@@ -206,6 +261,23 @@ export function WeeklyReport({
                   <Lightbulb className="w-5 h-5 text-yellow-500 mr-2" />
                   AI-Generated Summary
                 </h3>
+                <button
+                  onClick={handleRegenerateSummary}
+                  disabled={regeneratingSummary}
+                  className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {regeneratingSummary ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                      <span>Regenerating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-4 h-4" />
+                      <span>Regenerate Summary</span>
+                    </>
+                  )}
+                </button>
               </div>
 
               {/* Summary Tabs */}
@@ -338,6 +410,13 @@ export function WeeklyReport({
                 // Individual Member Summary Tab
                 <div className="space-y-6">
                   {(() => {
+                    console.log('🔍 Debug member summary lookup:', {
+                      activeTab,
+                      memberSummariesKeys: Object.keys(report.summary.memberSummaries || {}),
+                      memberSummaries: report.summary.memberSummaries,
+                      hasMemberSummary: !!report.summary.memberSummaries?.[activeTab]
+                    });
+                    
                     const memberSummary = report.summary.memberSummaries?.[activeTab];
                     if (!memberSummary) {
                       return (
@@ -345,6 +424,10 @@ export function WeeklyReport({
                           <User className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                           <h4 className="text-lg font-medium text-gray-900 mb-2">No individual summary available</h4>
                           <p className="text-gray-500">AI summary for {activeTab} is not available.</p>
+                          <div className="mt-4 text-xs text-gray-400">
+                            <p>Available member summaries: {Object.keys(report.summary.memberSummaries || {}).join(', ')}</p>
+                            <p>Looking for: {activeTab}</p>
+                          </div>
                         </div>
                       );
                     }
@@ -538,6 +621,25 @@ export function WeeklyReport({
           <h2 className="text-2xl font-bold text-gray-900">Weekly Reports</h2>
           <p className="text-gray-600">Automatically generated standup summaries with AI insights</p>
         </div>
+        {toGenerateReportManually && (
+          <button
+            onClick={onGenerateReportManually}
+            disabled={generatingReport}
+            className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {generatingReport ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                <span>Generating...</span>
+              </>
+            ) : (
+              <>
+                <FileText className="w-4 h-4" />
+                <span>Generate This Week</span>
+              </>
+            )}
+          </button>
+        )}
       </div>
 
       {/* Generation Info */}
@@ -560,6 +662,8 @@ export function WeeklyReport({
         reports={storedReports}
         loading={storedReportsLoading}
         onViewReport={onViewStoredReport}
+        onGenerateReportManually={onGenerateReportManually}
+        generatingReport={generatingReport}
       />
     </div>
   );

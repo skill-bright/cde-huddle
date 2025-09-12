@@ -5,9 +5,12 @@ interface StoredWeeklyReportsProps {
   reports: StoredWeeklyReport[];
   loading: boolean;
   onViewReport: (report: StoredWeeklyReport) => void;
+  onGenerateReportManually?: () => Promise<void>;
+  toGenerateReportManually?: boolean;
+  generatingReport?: boolean;
 }
 
-export function StoredWeeklyReports({ reports, loading, onViewReport }: StoredWeeklyReportsProps) {
+export function StoredWeeklyReports({ reports, loading, onViewReport, onGenerateReportManually, toGenerateReportManually = false, generatingReport = false }: StoredWeeklyReportsProps) {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       weekday: 'long',
@@ -121,8 +124,29 @@ export function StoredWeeklyReports({ reports, loading, onViewReport }: StoredWe
     <div className="bg-white rounded-lg border border-gray-200 p-6">
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-lg font-semibold text-gray-900">Stored Weekly Reports</h3>
-        <div className="text-sm text-gray-500">
-          {reports.length} report{reports.length !== 1 ? 's' : ''}
+        <div className="flex items-center gap-3">
+          <div className="text-sm text-gray-500">
+            {reports.length} report{reports.length !== 1 ? 's' : ''}
+          </div>
+          {toGenerateReportManually && (
+            <button
+              onClick={onGenerateReportManually}
+              disabled={generatingReport}
+              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-white bg-blue-600 border border-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {generatingReport ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <span>Generating...</span>
+                </>
+              ) : (
+                <>
+                  <FileText className="w-4 h-4" />
+                  <span>Generate This Week</span>
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
 
