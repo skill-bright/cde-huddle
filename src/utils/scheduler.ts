@@ -28,8 +28,37 @@ const isFridayAtNoon = () => {
 };
 
 /**
- * Get the start and end dates for the previous week (Monday to Sunday)
+ * Get the start and end dates for the current week (Monday to Sunday)
  * This is used for generating weekly reports on Friday
+ */
+const getCurrentWeekDates = () => {
+  // Use Vancouver timezone for consistent date calculation
+  const vancouverTime = new Date(getVancouverTime());
+  const dayOfWeek = vancouverTime.getDay();
+  
+  // Calculate days to Monday (0=Sunday, 1=Monday, ..., 6=Saturday)
+  // If today is Sunday (0), we want 6 days back to get to Monday
+  // If today is Monday (1), we want 0 days back
+  // If today is Tuesday (2), we want 1 day back
+  // If today is Friday (5), we want 4 days back
+  const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  
+  // Get the Monday of the current week
+  const currentMonday = new Date(vancouverTime);
+  currentMonday.setDate(vancouverTime.getDate() - daysToMonday);
+  
+  // Use today as the end date (since we're generating the report on Friday)
+  const currentEnd = new Date(vancouverTime);
+  
+  return {
+    weekStart: currentMonday.toISOString().split('T')[0],
+    weekEnd: currentEnd.toISOString().split('T')[0]
+  };
+};
+
+/**
+ * Get the start and end dates for the previous week (Monday to Sunday)
+ * This is used for manual report generation or fixing missing reports
  */
 const getPreviousWeekDates = () => {
   const today = new Date();
@@ -285,7 +314,7 @@ export const checkAndGenerateWeeklyReport = async (): Promise<void> => {
       return;
     }
 
-    const { weekStart, weekEnd } = getPreviousWeekDates();
+    const { weekStart, weekEnd } = getCurrentWeekDates();
     
     // Check if report already exists for this week
     const reportExists = await checkExistingReport(weekStart, weekEnd);
