@@ -1,6 +1,7 @@
-import { WeeklyReport as WeeklyReportType, StoredWeeklyReport } from '../types';
+import { WeeklyReport as WeeklyReportType, StoredWeeklyReport, TeamMember } from '../types';
 import { Calendar, FileText, Users, TrendingUp, AlertTriangle, Lightbulb, Download, User, Clock, ArrowLeft } from 'lucide-react';
 import { StoredWeeklyReports } from './StoredWeeklyReports';
+import { useState } from 'react';
 
 // Helper function to safely render HTML content
 const renderHtmlContent = (content: string) => {
@@ -44,7 +45,31 @@ export function WeeklyReport({
   onViewStoredReport,
   setWeeklyReport
 }: WeeklyReportProps) {
-  
+  const [activeTab, setActiveTab] = useState<string>('all');
+
+  // Get unique team members from the report
+  const getUniqueTeamMembers = (report: WeeklyReportType): TeamMember[] => {
+    const memberMap = new Map<string, TeamMember>();
+    
+    report.entries.forEach(entry => {
+      entry.teamMembers.forEach(member => {
+        // Use name as the key to ensure we don't get duplicates with same name but different IDs
+        if (!memberMap.has(member.name)) {
+          memberMap.set(member.name, member);
+        }
+      });
+    });
+    
+    return Array.from(memberMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+  };
+
+  // Get entries for a specific team member
+  const getMemberEntries = (report: WeeklyReportType, memberName: string) => {
+    return report.entries.map(entry => ({
+      ...entry,
+      teamMembers: entry.teamMembers.filter(member => member.name === memberName)
+    })).filter(entry => entry.teamMembers.length > 0);
+  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -173,115 +198,285 @@ export function WeeklyReport({
             </div>
           </div>
 
-          {/* AI Summary */}
+          {/* AI Summary with Tabs */}
           {report.summary && (
             <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <Lightbulb className="w-5 h-5 text-yellow-500 mr-2" />
-                AI-Generated Summary
-              </h3>
-              
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Key Accomplishments */}
-                <div>
-                  <h4 className="text-md font-medium text-gray-900 mb-3 flex items-center">
-                    <TrendingUp className="w-4 h-4 text-green-600 mr-2" />
-                    Key Accomplishments
-                  </h4>
-                  <ul className="space-y-2">
-                    {report.summary.keyAccomplishments && report.summary.keyAccomplishments.length > 0 ? (
-                      report.summary.keyAccomplishments.map((accomplishment, index) => (
-                        <li key={index} className="text-sm text-gray-700 bg-green-50 p-3 rounded-md">
-                          {renderHtmlContent(accomplishment)}
-                        </li>
-                      ))
-                    ) : (
-                      <li className="text-sm text-gray-500 italic">No accomplishments recorded</li>
-                    )}
-                  </ul>
-                </div>
-
-                {/* Ongoing Work */}
-                <div>
-                  <h4 className="text-md font-medium text-gray-900 mb-3 flex items-center">
-                    <Clock className="w-4 h-4 text-blue-600 mr-2" />
-                    Ongoing Work
-                  </h4>
-                  <ul className="space-y-2">
-                    {report.summary.ongoingWork && report.summary.ongoingWork.length > 0 ? (
-                      report.summary.ongoingWork.map((work, index) => (
-                        <li key={index} className="text-sm text-gray-700 bg-blue-50 p-3 rounded-md">
-                          {renderHtmlContent(work)}
-                        </li>
-                      ))
-                    ) : (
-                      <li className="text-sm text-gray-500 italic">No ongoing work recorded</li>
-                    )}
-                  </ul>
-                </div>
-
-                {/* Blockers */}
-                <div>
-                  <h4 className="text-md font-medium text-gray-900 mb-3 flex items-center">
-                    <AlertTriangle className="w-4 h-4 text-red-600 mr-2" />
-                    Blockers & Issues
-                  </h4>
-                  <ul className="space-y-2">
-                    {report.summary.blockers && report.summary.blockers.length > 0 ? (
-                      report.summary.blockers.map((blocker, index) => (
-                        <li key={index} className="text-sm text-gray-700 bg-red-50 p-3 rounded-md">
-                          {renderHtmlContent(blocker)}
-                        </li>
-                      ))
-                    ) : (
-                      <li className="text-sm text-gray-500 italic">No blockers recorded</li>
-                    )}
-                  </ul>
-                </div>
-
-                {/* Team Insights */}
-                <div>
-                  <h4 className="text-md font-medium text-gray-900 mb-3 flex items-center">
-                    <Users className="w-4 h-4 text-purple-600 mr-2" />
-                    Team Insights
-                  </h4>
-                  <div className="text-sm text-gray-700 bg-purple-50 p-3 rounded-md">
-                    {report.summary.teamInsights ? renderHtmlContent(report.summary.teamInsights) : 'No team insights available'}
-                  </div>
-                </div>
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                  <Lightbulb className="w-5 h-5 text-yellow-500 mr-2" />
+                  AI-Generated Summary
+                </h3>
               </div>
 
-              {/* Recommendations */}
-              {report.summary.recommendations && report.summary.recommendations.length > 0 && (
-                <div className="mt-6">
-                  <h4 className="text-md font-medium text-gray-900 mb-3 flex items-center">
-                    <Lightbulb className="w-4 h-4 text-yellow-600 mr-2" />
-                    Recommendations
-                  </h4>
-                  <ul className="space-y-2">
-                    {report.summary.recommendations.map((recommendation, index) => (
-                      <li key={index} className="text-sm text-gray-700 bg-yellow-50 p-3 rounded-md">
-                        {renderHtmlContent(recommendation)}
-                      </li>
-                    ))}
-                  </ul>
+              {/* Summary Tabs */}
+              <div className="border-b border-gray-200 mb-6">
+                <nav className="-mb-px flex space-x-8 overflow-x-auto">
+                  <button
+                    onClick={() => setActiveTab('all')}
+                    className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
+                      activeTab === 'all'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      Team Overview
+                    </div>
+                  </button>
+                  {getUniqueTeamMembers(report).map((member) => (
+                    <button
+                      key={member.name}
+                      onClick={() => setActiveTab(member.name)}
+                      className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
+                        activeTab === member.name
+                          ? 'border-blue-500 text-blue-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <User className="w-4 h-4" />
+                        {member.name}
+                      </div>
+                    </button>
+                  ))}
+                </nav>
+              </div>
+
+              {/* Summary Content */}
+              {activeTab === 'all' ? (
+                // Team Overview Tab
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Key Accomplishments */}
+                    <div>
+                      <h4 className="text-md font-medium text-gray-900 mb-3 flex items-center">
+                        <TrendingUp className="w-4 h-4 text-green-600 mr-2" />
+                        Key Accomplishments
+                      </h4>
+                      <ul className="space-y-2">
+                        {report.summary.keyAccomplishments && report.summary.keyAccomplishments.length > 0 ? (
+                          report.summary.keyAccomplishments.map((accomplishment, index) => (
+                            <li key={index} className="text-sm text-gray-700 bg-green-50 p-3 rounded-md">
+                              {renderHtmlContent(accomplishment)}
+                            </li>
+                          ))
+                        ) : (
+                          <li className="text-sm text-gray-500 italic">No accomplishments recorded</li>
+                        )}
+                      </ul>
+                    </div>
+
+                    {/* Ongoing Work */}
+                    <div>
+                      <h4 className="text-md font-medium text-gray-900 mb-3 flex items-center">
+                        <Clock className="w-4 h-4 text-blue-600 mr-2" />
+                        Ongoing Work
+                      </h4>
+                      <ul className="space-y-2">
+                        {report.summary.ongoingWork && report.summary.ongoingWork.length > 0 ? (
+                          report.summary.ongoingWork.map((work, index) => (
+                            <li key={index} className="text-sm text-gray-700 bg-blue-50 p-3 rounded-md">
+                              {renderHtmlContent(work)}
+                            </li>
+                          ))
+                        ) : (
+                          <li className="text-sm text-gray-500 italic">No ongoing work recorded</li>
+                        )}
+                      </ul>
+                    </div>
+
+                    {/* Blockers */}
+                    <div>
+                      <h4 className="text-md font-medium text-gray-900 mb-3 flex items-center">
+                        <AlertTriangle className="w-4 h-4 text-red-600 mr-2" />
+                        Blockers & Issues
+                      </h4>
+                      <ul className="space-y-2">
+                        {report.summary.blockers && report.summary.blockers.length > 0 ? (
+                          report.summary.blockers.map((blocker, index) => (
+                            <li key={index} className="text-sm text-gray-700 bg-red-50 p-3 rounded-md">
+                              {renderHtmlContent(blocker)}
+                            </li>
+                          ))
+                        ) : (
+                          <li className="text-sm text-gray-500 italic">No blockers recorded</li>
+                        )}
+                      </ul>
+                    </div>
+
+                    {/* Team Insights */}
+                    <div>
+                      <h4 className="text-md font-medium text-gray-900 mb-3 flex items-center">
+                        <Users className="w-4 h-4 text-purple-600 mr-2" />
+                        Team Insights
+                      </h4>
+                      <div className="text-sm text-gray-700 bg-purple-50 p-3 rounded-md">
+                        {report.summary.teamInsights ? renderHtmlContent(report.summary.teamInsights) : 'No team insights available'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Recommendations */}
+                  {report.summary.recommendations && report.summary.recommendations.length > 0 && (
+                    <div>
+                      <h4 className="text-md font-medium text-gray-900 mb-3 flex items-center">
+                        <Lightbulb className="w-4 h-4 text-yellow-600 mr-2" />
+                        Recommendations
+                      </h4>
+                      <ul className="space-y-2">
+                        {report.summary.recommendations.map((recommendation, index) => (
+                          <li key={index} className="text-sm text-gray-700 bg-yellow-50 p-3 rounded-md">
+                            {renderHtmlContent(recommendation)}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                // Individual Member Summary Tab
+                <div className="space-y-6">
+                  {(() => {
+                    const memberSummary = report.summary.memberSummaries?.[activeTab];
+                    if (!memberSummary) {
+                      return (
+                        <div className="text-center py-8">
+                          <User className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                          <h4 className="text-lg font-medium text-gray-900 mb-2">No individual summary available</h4>
+                          <p className="text-gray-500">AI summary for {activeTab} is not available.</p>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <>
+                        {/* Member Role */}
+                        <div className="bg-blue-50 p-4 rounded-lg">
+                          <h4 className="text-md font-medium text-blue-900 mb-2">Role</h4>
+                          <p className="text-blue-800">{memberSummary.role}</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                          {/* Key Contributions */}
+                          <div>
+                            <h4 className="text-md font-medium text-gray-900 mb-3 flex items-center">
+                              <TrendingUp className="w-4 h-4 text-green-600 mr-2" />
+                              Key Contributions
+                            </h4>
+                            <ul className="space-y-2">
+                              {memberSummary.keyContributions && memberSummary.keyContributions.length > 0 ? (
+                                memberSummary.keyContributions.map((contribution, index) => (
+                                  <li key={index} className="text-sm text-gray-700 bg-green-50 p-3 rounded-md">
+                                    {renderHtmlContent(contribution)}
+                                  </li>
+                                ))
+                              ) : (
+                                <li className="text-sm text-gray-500 italic">No contributions recorded</li>
+                              )}
+                            </ul>
+                          </div>
+
+                          {/* Progress */}
+                          <div>
+                            <h4 className="text-md font-medium text-gray-900 mb-3 flex items-center">
+                              <Clock className="w-4 h-4 text-blue-600 mr-2" />
+                              Progress
+                            </h4>
+                            <div className="text-sm text-gray-700 bg-blue-50 p-3 rounded-md">
+                              {memberSummary.progress ? renderHtmlContent(memberSummary.progress) : 'No progress information available'}
+                            </div>
+                          </div>
+
+                          {/* Concerns */}
+                          <div>
+                            <h4 className="text-md font-medium text-gray-900 mb-3 flex items-center">
+                              <AlertTriangle className="w-4 h-4 text-red-600 mr-2" />
+                              Concerns
+                            </h4>
+                            <ul className="space-y-2">
+                              {memberSummary.concerns && memberSummary.concerns.length > 0 ? (
+                                memberSummary.concerns.map((concern, index) => (
+                                  <li key={index} className="text-sm text-gray-700 bg-red-50 p-3 rounded-md">
+                                    {renderHtmlContent(concern)}
+                                  </li>
+                                ))
+                              ) : (
+                                <li className="text-sm text-gray-500 italic">No concerns recorded</li>
+                              )}
+                            </ul>
+                          </div>
+
+                          {/* Next Week Focus */}
+                          <div>
+                            <h4 className="text-md font-medium text-gray-900 mb-3 flex items-center">
+                              <Lightbulb className="w-4 h-4 text-yellow-600 mr-2" />
+                              Next Week Focus
+                            </h4>
+                            <div className="text-sm text-gray-700 bg-yellow-50 p-3 rounded-md">
+                              {memberSummary.nextWeekFocus ? renderHtmlContent(memberSummary.nextWeekFocus) : 'No focus areas defined'}
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               )}
             </div>
           )}
 
-          {/* Daily Entries */}
+          {/* Daily Entries with Tabs */}
           <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Daily Standup Entries</h3>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-gray-900">Daily Standup Entries</h3>
+            </div>
+
+            {/* Tabs */}
+            <div className="border-b border-gray-200 mb-6">
+              <nav className="-mb-px flex space-x-8 overflow-x-auto">
+                <button
+                  onClick={() => setActiveTab('all')}
+                  className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'all'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4" />
+                    All Members ({report.uniqueMembers})
+                  </div>
+                </button>
+                {getUniqueTeamMembers(report).map((member) => (
+                  <button
+                    key={member.name}
+                    onClick={() => setActiveTab(member.name)}
+                    className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
+                      activeTab === member.name
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <User className="w-4 h-4" />
+                      {member.name}
+                    </div>
+                  </button>
+                ))}
+              </nav>
+            </div>
+
+            {/* Tab Content */}
             <div className="space-y-4">
-              {report.entries.map((entry) => (
+              {(activeTab === 'all' ? report.entries : getMemberEntries(report, activeTab)).map((entry) => (
                 <div key={entry.id} className="border border-gray-200 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="text-md font-medium text-gray-900">
                       {formatDate(entry.date)}
                     </h4>
                     <span className="text-sm text-gray-500">
-                      {entry.teamMembers.length} team members
+                      {entry.teamMembers.length} team member{entry.teamMembers.length !== 1 ? 's' : ''}
                     </span>
                   </div>
                   <div className="space-y-3">

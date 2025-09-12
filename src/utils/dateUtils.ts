@@ -1,14 +1,32 @@
+const VANCOUVER_TIMEZONE = 'America/Vancouver';
+
+/**
+ * Get a date in Vancouver timezone as YYYY-MM-DD string
+ */
+const getVancouverDate = (date: Date = new Date()) => {
+  return date.toLocaleDateString('en-CA', {
+    timeZone: VANCOUVER_TIMEZONE
+  });
+};
+
 export function getPreviousBusinessDay(): string {
   const today = new Date();
-  const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+  const dayOfWeek = today.getDay();
+  
+  let targetDate: Date;
   
   if (dayOfWeek === 1) { // Monday
-    return 'Friday';
-  } else if (dayOfWeek === 0) { // Sunday (shouldn't happen in business context, but handle it)
-    return 'Friday';
-  } else {
-    return 'yesterday';
+    targetDate = new Date(today);
+    targetDate.setDate(today.getDate() - 3);
+  } else if (dayOfWeek === 0) { // Sunday
+    targetDate = new Date(today);
+    targetDate.setDate(today.getDate() - 2);
+  } else { // Tuesday through Saturday
+    targetDate = new Date(today);
+    targetDate.setDate(today.getDate() - 1);
   }
+  
+  return getVancouverDate(targetDate);
 }
 
 export function getTodayLabel(): string {

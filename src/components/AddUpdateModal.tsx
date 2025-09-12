@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, Save, Loader2 } from 'lucide-react';
+import { X, Save, Loader2, Sparkles } from 'lucide-react';
 import { TeamMember } from '../types';
-import { getPreviousBusinessDayLabel, getTodayPlanLabel } from '../utils/dateUtils';
+import { getPreviousBusinessDayLabel, getTodayPlanLabel, getPreviousBusinessDay } from '../utils/dateUtils';
+import { generateFieldContent, generateFullReport } from '../utils/aiUtils';
 import RichTextEditor from './RichTextEditor';
+import { AIPreviewPanel } from './AIPreviewPanel';
 
 // Predefined team members - you can modify this list
 const TEAM_MEMBERS = [
@@ -19,6 +21,7 @@ interface AddUpdateModalProps {
   onSave: (member: TeamMember) => void;
   member?: TeamMember;
   saving?: boolean;
+  previousEntries?: TeamMember[];
 }
 
 // Rich text editor component wrapper - moved outside to prevent recreation
@@ -43,7 +46,7 @@ const RichTextArea = React.memo(({
   );
 });
 
-const AddUpdateModal = React.memo(function AddUpdateModal({ isOpen, onClose, onSave, member, saving = false }: AddUpdateModalProps) {
+const AddUpdateModal = React.memo(function AddUpdateModal({ isOpen, onClose, onSave, member, saving = false, previousEntries = [] }: AddUpdateModalProps) {
   const [formData, setFormData] = useState({
     name: '',
     role: '',
@@ -51,6 +54,15 @@ const AddUpdateModal = React.memo(function AddUpdateModal({ isOpen, onClose, onS
     today: '',
     blockers: ''
   });
+
+  // AI generation state
+  const [aiPreviewOpen, setAiPreviewOpen] = useState(false);
+  const [aiGeneratedContent, setAiGeneratedContent] = useState<{
+    yesterday?: string;
+    today?: string;
+    blockers?: string;
+  }>({});
+  const [aiLoading, setAiLoading] = useState(false);
 
   const handleNameChange = useCallback((selectedName: string) => {
     const selectedMember = TEAM_MEMBERS.find(member => member.name === selectedName);
@@ -120,6 +132,100 @@ const AddUpdateModal = React.memo(function AddUpdateModal({ isOpen, onClose, onS
     onClose();
   }, [onClose]);
 
+  // AI generation handlers
+  const handleGenerateField = useCallback(async (fieldType: 'yesterday' | 'today' | 'blockers') => {
+    if (!formData.name || !formData.role) {
+      alert('Please select your name first');
+      return;
+    }
+
+    setAiLoading(true);
+    try {
+      const targetDate = fieldType === 'yesterday' ? getPreviousBusinessDay() : undefined;
+      
+      // Console log for debugging
+      if (fieldType === 'yesterday') {
+        console.log('🔍 AI Generate "What did you do yesterday?" - Target Date:', targetDate);
+        console.log('📅 Current date:', new Date().toLocaleDateString('en-CA', { timeZone: 'America/Vancouver' }));
+        console.log('👤 Member:', formData.name, 'Role:', formData.role);
+      }
+      
+      const content = await generateFieldContent({
+        memberName: formData.name,
+        memberRole: formData.role,
+        fieldType,
+        previousEntries,
+        targetDate
+      });
+      
+      setAiGeneratedContent(prev => ({
+        ...prev,
+        [fieldType]: content
+      }));
+      setAiPreviewOpen(true);
+    } catch (error) {
+      console.error('AI generation failed:', error);
+      alert('Failed to generate AI content. Please try again.');
+    } finally {
+      setAiLoading(false);
+    }
+  }, [formData.name, formData.role, previousEntries]);
+
+  const handleGenerateFullReport = useCallback(async () => {
+    if (!formData.name || !formData.role) {
+      alert('Please select your name first');
+      return;
+    }
+
+    setAiLoading(true);
+    try {
+      const targetDate = getPreviousBusinessDay();
+      
+      // Console log for debugging
+      console.log('🔍 AI Generate Full Report - Target Date for "yesterday":', targetDate);
+      console.log('📅 Current date:', new Date().toLocaleDateString('en-CA', { timeZone: 'America/Vancouver' }));
+      console.log('👤 Member:', formData.name, 'Role:', formData.role);
+      
+      const content = await generateFullReport(formData.name, formData.role, previousEntries, targetDate);
+      setAiGeneratedContent(content);
+      setAiPreviewOpen(true);
+    } catch (error) {
+      console.error('AI generation failed:', error);
+      alert('Failed to generate AI content. Please try again.');
+    } finally {
+      setAiLoading(false);
+    }
+  }, [formData.name, formData.role, previousEntries]);
+
+  const handleAcceptAIContent = useCallback((field: 'yesterday' | 'today' | 'blockers', content: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: content
+    }));
+    
+    // Remove the accepted content from preview
+    setAiGeneratedContent(prev => {
+      const updated = { ...prev };
+      delete updated[field];
+      return updated;
+    });
+  }, []);
+
+  const handleAcceptAllAI = useCallback(() => {
+    if (aiGeneratedContent.yesterday) {
+      setFormData(prev => ({ ...prev, yesterday: aiGeneratedContent.yesterday! }));
+    }
+    if (aiGeneratedContent.today) {
+      setFormData(prev => ({ ...prev, today: aiGeneratedContent.today! }));
+    }
+    if (aiGeneratedContent.blockers) {
+      setFormData(prev => ({ ...prev, blockers: aiGeneratedContent.blockers! }));
+    }
+    
+    setAiGeneratedContent({});
+    setAiPreviewOpen(false);
+  }, [aiGeneratedContent]);
+
   if (!isOpen) return null;
 
   return (
@@ -174,9 +280,20 @@ const AddUpdateModal = React.memo(function AddUpdateModal({ isOpen, onClose, onS
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              {getPreviousBusinessDayLabel()}
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700">
+                {getPreviousBusinessDayLabel()}
+              </label>
+              <button
+                type="button"
+                onClick={() => handleGenerateField('yesterday')}
+                disabled={aiLoading || !formData.name}
+                className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded-md hover:bg-purple-100 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Sparkles className="w-3 h-3" />
+                {aiLoading ? 'Generating...' : 'AI Generate'}
+              </button>
+            </div>
             <RichTextArea
               value={formData.yesterday}
               onChange={handleYesterdayChange}
@@ -186,9 +303,20 @@ const AddUpdateModal = React.memo(function AddUpdateModal({ isOpen, onClose, onS
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              {getTodayPlanLabel()}
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700">
+                {getTodayPlanLabel()}
+              </label>
+              {/* <button
+                type="button"
+                onClick={() => handleGenerateField('today')}
+                disabled={aiLoading || !formData.name}
+                className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded-md hover:bg-purple-100 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Sparkles className="w-3 h-3" />
+                {aiLoading ? 'Generating...' : 'AI Generate'}
+              </button> */}
+            </div>
             <RichTextArea
               value={formData.today}
               onChange={handleTodayChange}
@@ -198,9 +326,20 @@ const AddUpdateModal = React.memo(function AddUpdateModal({ isOpen, onClose, onS
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Any blockers or challenges?
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Any blockers or challenges?
+              </label>
+              {/* <button
+                type="button"
+                onClick={() => handleGenerateField('blockers')}
+                disabled={aiLoading || !formData.name}
+                className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded-md hover:bg-purple-100 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Sparkles className="w-3 h-3" />
+                {aiLoading ? 'Generating...' : 'AI Generate'}
+              </button> */}
+            </div>
             <RichTextArea
               value={formData.blockers}
               onChange={handleBlockersChange}
@@ -208,6 +347,39 @@ const AddUpdateModal = React.memo(function AddUpdateModal({ isOpen, onClose, onS
               minHeight="180px"
             />
           </div>
+
+          {/* AI Generation Section */}
+          {formData.name && formData.role && (
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 text-purple-600" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-purple-900">AI Assistant</h3>
+                  <p className="text-xs text-purple-700">Let AI help generate your standup content</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleGenerateFullReport}
+                disabled={aiLoading}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-purple-700 bg-white border border-purple-300 rounded-lg hover:bg-purple-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {aiLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Generating AI content...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    Let AI generate for you
+                  </>
+                )}
+              </button>
+            </div>
+          )}
 
           <div className="flex gap-3 pt-4">
             <button
@@ -238,6 +410,17 @@ const AddUpdateModal = React.memo(function AddUpdateModal({ isOpen, onClose, onS
           </div>
         </form>
       </div>
+
+      {/* AI Preview Panel */}
+      <AIPreviewPanel
+        isOpen={aiPreviewOpen}
+        onClose={() => setAiPreviewOpen(false)}
+        generatedContent={aiGeneratedContent}
+        onAccept={handleAcceptAIContent}
+        onAcceptAll={handleAcceptAllAI}
+        loading={aiLoading}
+        fieldType="full"
+      />
     </div>
   );
 });

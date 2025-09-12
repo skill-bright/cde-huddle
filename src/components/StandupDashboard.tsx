@@ -407,6 +407,7 @@ export default function StandupDashboard({ initialTab = 'daily' }: StandupDashbo
         onSave={handleSaveMember}
         member={editingMember}
         saving={saving}
+        previousEntries={standupHistory.flatMap((entry) => entry.teamMembers)}
       />
     </div>
   );

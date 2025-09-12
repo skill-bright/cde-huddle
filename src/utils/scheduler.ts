@@ -336,9 +336,17 @@ export const checkAndGenerateWeeklyReport = async (): Promise<void> => {
   } catch (error) {
     console.error('Error in automatic weekly report generation:', error);
     
-    // Save error to database
+    // Save error to database (only if no report exists for this week)
     try {
       const { weekStart, weekEnd } = getPreviousWeekDates();
+      
+      // Check if report already exists before trying to save error
+      const reportExists = await checkExistingReport(weekStart, weekEnd);
+      if (reportExists) {
+        console.log('Weekly report already exists for this week, skipping error save.');
+        return;
+      }
+      
       const client = supabaseService || supabase;
       
       const { error: saveError } = await client
@@ -391,9 +399,17 @@ export const generateWeeklyReportManually = async (): Promise<void> => {
   } catch (error) {
     console.error('Error in manual weekly report generation:', error);
     
-    // Save error to database
+    // Save error to database (only if no report exists for this week)
     try {
       const { weekStart, weekEnd } = getPreviousWeekDates();
+      
+      // Check if report already exists before trying to save error
+      const reportExists = await checkExistingReport(weekStart, weekEnd);
+      if (reportExists) {
+        console.log('Weekly report already exists for this week, skipping error save.');
+        return;
+      }
+      
       const client = supabaseService || supabase;
       
       const { error: saveError } = await client
