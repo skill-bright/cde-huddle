@@ -9,6 +9,20 @@ const getVancouverDate = (date: Date = new Date()) => {
   });
 };
 
+/**
+ * Get the end of current week (Sunday) in Vancouver timezone
+ */
+export function getWeekEndDate(): string {
+  const today = new Date();
+  const dayOfWeek = today.getDay();
+  const daysToSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
+  
+  const sunday = new Date(today);
+  sunday.setDate(today.getDate() + daysToSunday);
+  
+  return getVancouverDate(sunday);
+};
+
 export function getPreviousBusinessDay(): string {
   const today = new Date();
   const dayOfWeek = today.getDay();

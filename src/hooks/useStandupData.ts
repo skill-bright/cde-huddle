@@ -60,6 +60,20 @@ const getWeekStartDate = () => {
 };
 
 /**
+ * Get the end of current week (Sunday) in Vancouver timezone
+ */
+const getWeekEndDate = () => {
+  const today = new Date();
+  const dayOfWeek = today.getDay();
+  const daysToSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
+  
+  const sunday = new Date(today);
+  sunday.setDate(today.getDate() + daysToSunday);
+  
+  return getVancouverDate(sunday);
+};
+
+/**
  * Extract date part (YYYY-MM-DD) from a timestamp string
  */
 const extractDateFromTimestamp = (timestamp: string) => {
@@ -399,7 +413,7 @@ export function useStandupData() {
 
       // Determine week range
       const weekStart = filters.weekStart || getWeekStartDate();
-      const weekEnd = filters.weekEnd || getVancouverDate();
+      const weekEnd = filters.weekEnd || getWeekEndDate();
 
       // Fetch all standup entries for the week
       const { data: weekEntries, error: entriesError } = await supabase

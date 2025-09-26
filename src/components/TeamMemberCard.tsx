@@ -1,6 +1,9 @@
-import { Edit, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Edit, AlertTriangle, CheckCircle, Sparkles, Clock, Zap } from 'lucide-react';
 import { TeamMember } from '../types';
 import { getPreviousBusinessDay } from '../utils/dateUtils';
+import { motion } from 'motion/react';
+import { useState } from 'react';
+import CardFlip from './kokonutui/card-flip';
 
 interface TeamMemberCardProps {
   member: TeamMember;
@@ -8,74 +11,54 @@ interface TeamMemberCardProps {
 }
 
 export default function TeamMemberCard({ member, onEdit }: TeamMemberCardProps) {
+  const [isHovered, setIsHovered] = useState(false);
 
-  
+  // Create features list for the card flip
+  const features = [
+    member.yesterday ? `${getPreviousBusinessDay() === 'Friday' ? 'Friday' : 'Yesterday'} updates` : 'No updates yet',
+    member.today ? 'Today plans' : 'No plans yet',
+    member.blockers ? 'Has blockers' : 'No blockers',
+    `Updated ${new Date(member.lastUpdated).toLocaleDateString()}`
+  ];
+
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-all duration-300 hover:scale-[1.02]">
-      <div className="flex items-center gap-4 mb-4">
-        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-teal-500 rounded-full flex items-center justify-center text-white font-semibold text-lg">
-          {member.name.charAt(0).toUpperCase()}
-        </div>
-        <div className="flex-1">
-          <h3 className="font-semibold text-gray-900 text-lg">{member.name}</h3>
-          <p className="text-gray-500 text-sm">{member.role}</p>
-        </div>
-        <button
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -8, scale: 1.02 }}
+      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+      onHoverStart={() => setIsHovered(true)}
+      onHoverEnd={() => setIsHovered(false)}
+      className="relative group"
+    >
+      <div className="relative">
+        {/* Edit Button */}
+        <motion.button
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
           onClick={() => onEdit(member)}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+          className="absolute top-4 right-4 z-20 p-2 bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 rounded-lg transition-all duration-200 border border-white/20 dark:border-gray-700/20 shadow-sm backdrop-blur-sm"
         >
-          <Edit size={18} className="text-gray-400" />
-        </button>
+          <Edit size={16} className="text-gray-600 dark:text-gray-400" />
+        </motion.button>
+
+        {/* Card Flip Component */}
+        <CardFlip
+          title={member.name}
+          subtitle={member.role}
+          description={`${member.yesterday ? 'Has updates from ' + (getPreviousBusinessDay() === 'Friday' ? 'Friday' : 'yesterday') : 'No updates yet'}. ${member.today ? 'Has plans for today' : 'No plans yet'}. ${member.blockers ? 'Has blockers to address' : 'No blockers reported'}.`}
+          features={features}
+        />
+
+        {/* Status Indicator */}
+        <motion.div
+          animate={{ 
+            scale: isHovered ? 1 : 0.8,
+            opacity: isHovered ? 1 : 0.6 
+          }}
+          className="absolute bottom-4 left-4 w-3 h-3 bg-gradient-to-r from-emerald-400 to-cyan-400 rounded-full shadow-lg"
+        />
       </div>
-
-      <div className="space-y-4">
-        <div className="group">
-          <div className="flex items-center gap-2 mb-2">
-            <CheckCircle size={16} className="text-green-500" />
-            <h4 className="font-medium text-gray-700 text-sm">
-              {getPreviousBusinessDay() === 'Friday' ? 'Friday' : 'Yesterday'}
-            </h4>
-          </div>
-          <div 
-            className="text-gray-600 text-sm leading-relaxed pl-6 prose prose-sm max-w-none"
-            dangerouslySetInnerHTML={{ __html: member.yesterday || "No updates yet" }}
-          />
-        </div>
-
-        <div className="group">
-          <div className="flex items-center gap-2 mb-2">
-            <CheckCircle size={16} className="text-blue-500" />
-            <h4 className="font-medium text-gray-700 text-sm">Today</h4>
-          </div>
-          <div 
-            className="text-gray-600 text-sm leading-relaxed pl-6 prose prose-sm max-w-none"
-            dangerouslySetInnerHTML={{ __html: member.today || "No plans yet" }}
-          />
-        </div>
-
-        <div className="group">
-          <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle size={16} className="text-orange-500" />
-            <h4 className="font-medium text-gray-700 text-sm">Blockers</h4>
-          </div>
-          <div 
-            className="text-gray-600 text-sm leading-relaxed pl-6 prose prose-sm max-w-none"
-            dangerouslySetInnerHTML={{ __html: member.blockers || "No blockers" }}
-          />
-        </div>
-      </div>
-
-      <div className="mt-4 pt-4 border-t border-gray-50">
-        <p className="text-xs text-gray-400">
-          Last updated: {new Date(member.lastUpdated).toLocaleString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          })}
-        </p>
-      </div>
-    </div>
+    </motion.div>
   );
 }

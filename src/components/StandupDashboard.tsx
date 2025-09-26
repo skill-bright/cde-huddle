@@ -1,13 +1,16 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Plus, Users, Calendar, Target, History, ChevronDown, ChevronUp, Loader2, FileText } from 'lucide-react';
+import { Plus, Users, History, ChevronDown, FileText } from 'lucide-react';
 import TeamMemberCard from './TeamMemberCard';
 import AddUpdateModal from './AddUpdateModal';
 import StandupHistory from './StandupHistory';
 import { WeeklyReport } from './WeeklyReport';
+import Header from './Header';
 import { TeamMember, StoredWeeklyReport } from '../types';
 import { useStandupData } from '../hooks/useStandupData';
-import { getPreviousBusinessDay } from '../utils/dateUtils';
+import { LightRaysContainer } from './bits/light-ray';
+import ParticleButton from './kokonutui/particle-button';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface StandupDashboardProps {
   initialTab?: 'daily' | 'weekly';
@@ -16,15 +19,15 @@ interface StandupDashboardProps {
 export default function StandupDashboard({ initialTab = 'daily' }: StandupDashboardProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  
-  const { 
-    teamMembers, 
-    standupHistory, 
-    yesterdayCount, 
-    teamEngagement, 
-    loading, 
-    error, 
-    saveMember, 
+
+  const {
+    teamMembers,
+    standupHistory,
+    yesterdayCount,
+    teamEngagement,
+    loading,
+    error,
+    saveMember,
     refreshData,
     weeklyReport,
     weeklyReportLoading,
@@ -96,7 +99,7 @@ export default function StandupDashboard({ initialTab = 'daily' }: StandupDashbo
   }, []);
 
   const handleAddMember = useCallback(async () => {
-    
+
     setEditingMember(undefined);
     setIsModalOpen(true);
   }, []);
@@ -104,8 +107,6 @@ export default function StandupDashboard({ initialTab = 'daily' }: StandupDashbo
   const handleCloseModal = useCallback(() => {
     setIsModalOpen(false);
   }, []);
-
-
 
   const handleViewStoredReport = useCallback((report: StoredWeeklyReport) => {
     // Set the stored report as the current report
@@ -140,43 +141,47 @@ export default function StandupDashboard({ initialTab = 'daily' }: StandupDashbo
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
-        <div className="container mx-auto px-4 py-8">
+      <div className="min-h-screen relative overflow-hidden">
+        <LightRaysContainer />
+        
+        <div className="relative z-10 container mx-auto px-4 py-8">
           {/* Header Skeleton */}
-          <div className="mb-8">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 bg-gray-200 rounded-xl animate-pulse"></div>
-              <div className="h-8 w-48 bg-gray-200 rounded animate-pulse"></div>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="mb-12"
+          >
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-16 h-16 bg-white/20 dark:bg-gray-800/20 rounded-2xl animate-pulse backdrop-blur-sm"></div>
+              <div>
+                <div className="h-10 w-64 bg-white/20 dark:bg-gray-800/20 rounded-lg animate-pulse mb-2"></div>
+                <div className="h-4 w-48 bg-white/20 dark:bg-gray-800/20 rounded animate-pulse"></div>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-gray-200 rounded animate-pulse"></div>
-              <div className="h-4 w-32 bg-gray-200 rounded animate-pulse"></div>
+            <div className="bg-white/20 dark:bg-gray-800/20 backdrop-blur-sm rounded-xl p-4 animate-pulse">
+              <div className="h-6 w-40 bg-white/30 dark:bg-gray-700/30 rounded animate-pulse"></div>
             </div>
-          </div>
+          </motion.div>
 
           {/* Navigation Tabs Skeleton */}
-          <div className="mb-8">
-            <div className="border-b border-gray-200">
-              <div className="-mb-px flex space-x-8">
-                <div className="py-2 px-1">
-                  <div className="h-6 w-24 bg-gray-200 rounded animate-pulse"></div>
-                </div>
-                <div className="py-2 px-1">
-                  <div className="h-6 w-28 bg-gray-200 rounded animate-pulse"></div>
-                </div>
+          <div className="mb-12">
+            <div className="bg-white/20 dark:bg-gray-800/20 backdrop-blur-sm rounded-2xl p-2">
+              <div className="flex space-x-2">
+                <div className="flex-1 h-12 bg-white/30 dark:bg-gray-700/30 rounded-xl animate-pulse"></div>
+                <div className="flex-1 h-12 bg-white/30 dark:bg-gray-700/30 rounded-xl animate-pulse"></div>
               </div>
             </div>
           </div>
 
           {/* Stats Bar Skeleton */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gray-200 rounded-lg animate-pulse"></div>
+              <div key={i} className="bg-white/20 dark:bg-gray-800/20 backdrop-blur-sm rounded-2xl p-6 animate-pulse">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 bg-white/30 dark:bg-gray-700/30 rounded-xl animate-pulse"></div>
                   <div className="flex-1">
-                    <div className="h-4 w-20 bg-gray-200 rounded animate-pulse mb-2"></div>
-                    <div className="h-6 w-12 bg-gray-200 rounded animate-pulse"></div>
+                    <div className="h-4 w-24 bg-white/30 dark:bg-gray-700/30 rounded animate-pulse mb-2"></div>
+                    <div className="h-8 w-16 bg-white/30 dark:bg-gray-700/30 rounded animate-pulse"></div>
                   </div>
                 </div>
               </div>
@@ -184,34 +189,34 @@ export default function StandupDashboard({ initialTab = 'daily' }: StandupDashbo
           </div>
 
           {/* Section Header Skeleton */}
-          <div className="flex justify-between items-center mb-6">
-            <div className="flex items-center gap-4">
-              <div className="h-6 w-32 bg-gray-200 rounded animate-pulse"></div>
-              <div className="h-8 w-16 bg-gray-200 rounded-lg animate-pulse"></div>
+          <div className="flex justify-between items-center mb-8">
+            <div className="flex items-center gap-6">
+              <div className="h-8 w-40 bg-white/20 dark:bg-gray-800/20 rounded animate-pulse"></div>
+              <div className="h-10 w-20 bg-white/20 dark:bg-gray-800/20 rounded-xl animate-pulse"></div>
             </div>
-            <div className="h-10 w-32 bg-gray-200 rounded-lg animate-pulse"></div>
+            <div className="h-12 w-36 bg-white/20 dark:bg-gray-800/20 rounded-xl animate-pulse"></div>
           </div>
 
           {/* Team Members Grid Skeleton - Masonry Layout */}
           <div className="columns-1 md:columns-2 xl:columns-3 gap-6">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <div key={i} className="break-inside-avoid mb-6">
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <div className="bg-white/20 dark:bg-gray-800/20 backdrop-blur-sm rounded-2xl p-6 animate-pulse">
                   <div className="flex items-start gap-4 mb-4">
-                    <div className="w-12 h-12 bg-gray-200 rounded-full animate-pulse flex-shrink-0"></div>
+                    <div className="w-12 h-12 bg-white/30 dark:bg-gray-700/30 rounded-full animate-pulse flex-shrink-0"></div>
                     <div className="flex-1">
-                      <div className="h-5 w-24 bg-gray-200 rounded animate-pulse mb-2"></div>
-                      <div className="h-4 w-16 bg-gray-200 rounded animate-pulse"></div>
+                      <div className="h-5 w-24 bg-white/30 dark:bg-gray-700/30 rounded animate-pulse mb-2"></div>
+                      <div className="h-4 w-16 bg-white/30 dark:bg-gray-700/30 rounded animate-pulse"></div>
                     </div>
                   </div>
                   <div className="space-y-3">
-                    <div className="h-4 w-full bg-gray-200 rounded animate-pulse"></div>
-                    <div className="h-4 w-3/4 bg-gray-200 rounded animate-pulse"></div>
-                    <div className="h-4 w-1/2 bg-gray-200 rounded animate-pulse"></div>
+                    <div className="h-4 w-full bg-white/30 dark:bg-gray-700/30 rounded animate-pulse"></div>
+                    <div className="h-4 w-3/4 bg-white/30 dark:bg-gray-700/30 rounded animate-pulse"></div>
+                    <div className="h-4 w-1/2 bg-white/30 dark:bg-gray-700/30 rounded animate-pulse"></div>
                   </div>
-                  <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-100">
-                    <div className="h-4 w-20 bg-gray-200 rounded animate-pulse"></div>
-                    <div className="h-8 w-16 bg-gray-200 rounded-lg animate-pulse"></div>
+                  <div className="flex justify-between items-center mt-4 pt-4">
+                    <div className="h-4 w-20 bg-white/30 dark:bg-gray-700/30 rounded animate-pulse"></div>
+                    <div className="h-8 w-16 bg-white/30 dark:bg-gray-700/30 rounded-lg animate-pulse"></div>
                   </div>
                 </div>
               </div>
@@ -224,180 +229,207 @@ export default function StandupDashboard({ initialTab = 'daily' }: StandupDashbo
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex items-center justify-center">
-        <div className="bg-white rounded-xl shadow-sm border border-red-200 p-6 max-w-md">
-          <div className="text-red-600 mb-2">Database Connection Error</div>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <button
-            onClick={async () => {
-              refreshData();
-            }}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
-          >
-            Retry
-          </button>
-        </div>
+      <div className="min-h-screen relative overflow-hidden flex items-center justify-center">
+        <LightRaysContainer />
+
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="relative z-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/20 dark:border-gray-700/20 p-8 max-w-md mx-4"
+        >
+          <div className="text-center">
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+              className="w-16 h-16 bg-gradient-to-br from-red-400 to-red-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg"
+            >
+              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </motion.div>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Connection Error</h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">{error}</p>
+            <ParticleButton
+              onClick={async () => {
+                refreshData();
+              }}
+              className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all duration-200 shadow-lg hover:shadow-xl"
+            >
+              Retry Connection
+            </ParticleButton>
+          </div>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
-      <div className="container mx-auto px-4 py-8">
+    <div className="min-h-screen relative overflow-hidden">
+      <LightRaysContainer />
+
+      <div className="relative z-10 container mx-auto px-4 py-8">
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-teal-600 rounded-xl flex items-center justify-center">
-              <Users className="text-white" size={24} />
-            </div>
-            <h1 className="text-3xl font-bold text-gray-900">Team Standup</h1>
-          </div>
-          <div className="flex items-center gap-2 text-gray-600">
-            <Calendar size={16} />
-            <span>{today}</span>
-          </div>
-        </div>
+        <Header
+          today={today}
+          teamMembersCount={teamMembers.length}
+          yesterdayCount={yesterdayCount}
+          teamEngagement={teamEngagement.toString()}
+          onAddMember={handleAddMember}
+          saving={saving}
+        />
 
         {/* Navigation Tabs */}
-        <div className="mb-8">
-          <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8">
-              <button
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+          className="mb-12"
+        >
+          <div className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm rounded-2xl p-2 border border-white/20 dark:border-gray-700/20 shadow-lg">
+            <nav className="flex space-x-2">
+              <motion.button
                 onClick={() => handleTabChange('daily')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'daily'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                className={`relative flex-1 py-3 px-6 rounded-xl font-medium text-sm transition-all duration-300 ${activeTab === 'daily'
+                    ? 'text-white'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
               >
-                <div className="flex items-center gap-2">
-                  <Users size={16} />
+                {activeTab === 'daily' && (
+                  <motion.div
+                    layoutId="activeTab"
+                    className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl shadow-lg"
+                    initial={false}
+                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                  />
+                )}
+                <div className="relative flex items-center justify-center gap-2">
+                  <Users size={18} />
                   Daily Standup
                 </div>
-              </button>
-              <button
+              </motion.button>
+              <motion.button
                 onClick={() => handleTabChange('weekly')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'weekly'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                className={`relative flex-1 py-3 px-6 rounded-xl font-medium text-sm transition-all duration-300 ${activeTab === 'weekly'
+                    ? 'text-white'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
               >
-                <div className="flex items-center gap-2">
-                  <FileText size={16} />
+                {activeTab === 'weekly' && (
+                  <motion.div
+                    layoutId="activeTab"
+                    className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl shadow-lg"
+                    initial={false}
+                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                  />
+                )}
+                <div className="relative flex items-center justify-center gap-2">
+                  <FileText size={18} />
                   Weekly Reports
                 </div>
-              </button>
+              </motion.button>
             </nav>
           </div>
-        </div>
+        </motion.div>
 
         {/* Daily Standup Tab */}
         {activeTab === 'daily' && (
           <>
-            {/* Stats Bar */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <Users size={20} className="text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Updates Today</p>
-                    <p className="text-xl font-semibold text-gray-900">{teamMembers.length}</p>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                    <Target size={20} className="text-green-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">
-                      {getPreviousBusinessDay() === 'Friday' ? 'Friday Updates' : 'Yesterday Updates'}
-                    </p>
-                    <p className="text-xl font-semibold text-gray-900">
-                      {yesterdayCount}
-                    </p>
-                  </div>
-                </div>
-              </div>
 
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                    <Users size={20} className="text-purple-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Team Engagement</p>
-                    <p className="text-xl font-semibold text-gray-900">
-                      {teamEngagement}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center gap-4">
-                <h2 className="text-xl font-semibold text-gray-900">Today's Updates</h2>
-                <button
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.0 }}
+              className="flex justify-between items-center mb-8"
+            >
+              <div className="flex items-center gap-6">
+                <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+                  Today's Updates
+                </h2>
+                <motion.button
                   onClick={async () => {
                     setShowHistory(!showHistory);
                   }}
-                  className="px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors duration-200 flex items-center gap-2"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="px-4 py-2 bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-white/80 dark:hover:bg-gray-900/80 rounded-xl transition-all duration-200 flex items-center gap-2 border border-white/20 dark:border-gray-700/20 shadow-sm"
                 >
                   <History size={18} />
                   History
-                  {showHistory ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                </button>
+                  <motion.div
+                    animate={{ rotate: showHistory ? 180 : 0 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <ChevronDown size={16} />
+                  </motion.div>
+                </motion.button>
               </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={handleAddMember}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center gap-2 shadow-sm"
-                  disabled={saving}
-                >
-                  {saving ? <Loader2 className="animate-spin" size={18} /> : <Plus size={18} />}
-                  Add My Update
-                </button>
-              </div>
-            </div>
+            </motion.div>
 
             {/* Standup History */}
-            <StandupHistory 
+            <StandupHistory
               history={standupHistory}
               isOpen={showHistory}
-              onToggle={() => setShowHistory(!showHistory)}
+              onClose={() => setShowHistory(false)}
             />
 
             {/* Team Members Grid - Masonry Layout */}
-            <div className="columns-1 md:columns-2 xl:columns-3 gap-6">
-              {teamMembers.map((member) => (
-                <div key={member.id} className="break-inside-avoid mb-6">
-                  <TeamMemberCard
-                    member={member}
-                    onEdit={handleEditMember}
-                  />
-                </div>
-              ))}
-            </div>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 1.2 }}
+              className="columns-1 md:columns-2 xl:columns-3 gap-6"
+            >
+              <AnimatePresence>
+                {teamMembers.map((member, index) => (
+                  <motion.div
+                    key={member.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ delay: index * 0.1 }}
+                    className="break-inside-avoid mb-6"
+                  >
+                    <TeamMemberCard
+                      member={member}
+                      onEdit={handleEditMember}
+                    />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </motion.div>
 
             {teamMembers.length === 0 && (
-              <div className="text-center py-12">
-                <Users size={48} className="text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No updates yet</h3>
-                <p className="text-gray-500 mb-4">Add your update to get started with today's standup</p>
-                <button
-                  onClick={handleAddMember}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center gap-2 mx-auto"
-                >
-                  <Plus size={20} />
-                  Add My Update
-                </button>
-              </div>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 1.2 }}
+                className="text-center py-16"
+              >
+                <div className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm rounded-3xl p-12 border border-white/20 dark:border-gray-700/20 shadow-lg max-w-md mx-auto">
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 1.4, type: "spring", stiffness: 200 }}
+                    className="w-20 h-20 bg-gradient-to-br from-blue-400 to-purple-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg"
+                  >
+                    <Users size={32} className="text-white" />
+                  </motion.div>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">No updates yet</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-6">Add your update to get started with today's standup</p>
+                  <ParticleButton
+                    onClick={handleAddMember}
+                    className="px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all duration-200 flex items-center gap-2 mx-auto shadow-lg hover:shadow-xl"
+                  >
+                    <Plus size={20} />
+                    Add My Update
+                  </ParticleButton>
+                </div>
+              </motion.div>
             )}
           </>
         )}

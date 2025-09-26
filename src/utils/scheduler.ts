@@ -6,16 +6,19 @@ const VANCOUVER_TIMEZONE = 'America/Vancouver';
  * Get the current time in Vancouver timezone
  */
 const getVancouverTime = () => {
-  return new Date().toLocaleString('en-US', {
+  // Create a new Date object and adjust for Vancouver timezone
+  const now = new Date();
+  const vancouverTime = new Date(now.toLocaleString('en-US', {
     timeZone: VANCOUVER_TIMEZONE
-  });
+  }));
+  return vancouverTime;
 };
 
 /**
  * Check if it's Friday at 12 PM PST (with a 5-minute window)
  */
 const isFridayAtNoon = () => {
-  const vancouverTime = new Date(getVancouverTime());
+  const vancouverTime = getVancouverTime();
   const dayOfWeek = vancouverTime.getDay(); // 0 = Sunday, 5 = Friday
   const hour = vancouverTime.getHours();
   const minute = vancouverTime.getMinutes();
@@ -33,7 +36,7 @@ const isFridayAtNoon = () => {
  */
 const getCurrentWeekDates = () => {
   // Use Vancouver timezone for consistent date calculation
-  const vancouverTime = new Date(getVancouverTime());
+  const vancouverTime = getVancouverTime();
   const dayOfWeek = vancouverTime.getDay();
   
   // Calculate days to Monday (0=Sunday, 1=Monday, ..., 6=Saturday)
@@ -47,12 +50,13 @@ const getCurrentWeekDates = () => {
   const currentMonday = new Date(vancouverTime);
   currentMonday.setDate(vancouverTime.getDate() - daysToMonday);
   
-  // Use today as the end date (since we're generating the report on Friday)
-  const currentEnd = new Date(vancouverTime);
+  // Get the Sunday of the current week (6 days after Monday)
+  const currentSunday = new Date(currentMonday);
+  currentSunday.setDate(currentMonday.getDate() + 6);
   
   return {
     weekStart: currentMonday.toISOString().split('T')[0],
-    weekEnd: currentEnd.toISOString().split('T')[0]
+    weekEnd: currentSunday.toISOString().split('T')[0]
   };
 };
 
@@ -387,7 +391,7 @@ const checkExistingReport = async (weekStart: string, weekEnd: string): Promise<
 export const checkAndGenerateWeeklyReport = async (): Promise<void> => {
   try {
     // Check if it's Friday at 12 PM PST
-    const vancouverTime = new Date(getVancouverTime());
+    const vancouverTime = getVancouverTime();
     const dayOfWeek = vancouverTime.getDay();
     const hour = vancouverTime.getHours();
     const minute = vancouverTime.getMinutes();
