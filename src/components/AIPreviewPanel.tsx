@@ -1,5 +1,4 @@
-import React from 'react';
-import { X, Check, XCircle, Sparkles, Loader2 } from 'lucide-react';
+import { X, Check, Sparkles, Loader2 } from 'lucide-react';
 
 interface AIPreviewPanelProps {
   isOpen: boolean;

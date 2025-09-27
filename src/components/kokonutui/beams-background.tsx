@@ -10,7 +10,7 @@
  * @github: https://github.com/kokonut-labs/kokonutui
  */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useMemo } from "react";
 import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 
@@ -62,11 +62,11 @@ export default function BeamsBackground({
     const MINIMUM_BEAMS = 20;
     const isDarkModeRef = useRef<boolean>(false);
 
-    const opacityMap = {
+    const opacityMap = useMemo(() => ({
         subtle: 0.7,
         medium: 0.85,
         strong: 1,
-    };
+    }), []);
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -207,7 +207,7 @@ export default function BeamsBackground({
             }
             observer.disconnect();
         };
-    }, [intensity]);
+    }, [intensity, opacityMap]);
 
     return (
         <div

@@ -38,12 +38,13 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
     skin: isDarkMode ? 'oxide-dark' : 'oxide',
     content_css: isDarkMode ? 'dark' : 'default',
     // Enhanced styling options
-    setup: (editor: any) => {
-      editor.on('init', () => {
+    setup: (editor: unknown) => {
+      const editorInstance = editor as { on: (event: string, callback: () => void) => void; getContainer: () => HTMLElement };
+      editorInstance.on('init', () => {
         // Add custom classes to the editor
-        editor.getContainer().classList.add('custom-tinymce-editor');
+        editorInstance.getContainer().classList.add('custom-tinymce-editor');
         if (isDarkMode) {
-          editor.getContainer().classList.add('dark-mode');
+          editorInstance.getContainer().classList.add('dark-mode');
         }
       });
     },

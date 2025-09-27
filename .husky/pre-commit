@@ -1,0 +1,11 @@
+# Run lint-staged to check only staged files
+pnpm exec lint-staged
+
+# Run full type check and build to ensure everything compiles
+echo "🔍 Running full type check..."
+pnpm type-check
+
+echo "🔨 Running build check..."
+pnpm build
+
+echo "✅ All checks passed! Ready to commit."

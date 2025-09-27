@@ -10,13 +10,14 @@
  * @github: https://github.com/kokonut-labs/kokonutui
  */
 
-import Anthropic from "@/components/icons/anthropic";
-import AnthropicDark from "@/components/icons/anthropic-dark";
-import Google from "@/components/icons/gemini";
-import OpenAI from "@/components/icons/open-ai";
-import OpenAIDark from "@/components/icons/open-ai-dark";
-import MistralAI from "@/components/icons/mistral";
-import DeepSeek from "@/components/icons/deepseek";
+// Icon components - replace with actual icon components or remove if not needed
+const Anthropic = ({ className }: { className?: string }) => <div className={`w-6 h-6 bg-purple-500 rounded ${className || ''}`}></div>;
+const AnthropicDark = ({ className }: { className?: string }) => <div className={`w-6 h-6 bg-purple-600 rounded ${className || ''}`}></div>;
+const Google = ({ className }: { className?: string }) => <div className={`w-6 h-6 bg-blue-500 rounded ${className || ''}`}></div>;
+const OpenAI = ({ className }: { className?: string }) => <div className={`w-6 h-6 bg-green-500 rounded ${className || ''}`}></div>;
+const OpenAIDark = ({ className }: { className?: string }) => <div className={`w-6 h-6 bg-green-600 rounded ${className || ''}`}></div>;
+const MistralAI = ({ className }: { className?: string }) => <div className={`w-6 h-6 bg-orange-500 rounded ${className || ''}`}></div>;
+const DeepSeek = ({ className }: { className?: string }) => <div className={`w-6 h-6 bg-red-500 rounded ${className || ''}`}></div>;
 import { cn } from "@/lib/utils";
 import {
     Mic,
@@ -33,7 +34,10 @@ import {
     useTransform,
     type Variants,
 } from "motion/react";
-import Link from "next/link";
+// Replace Next.js Link with React Router Link or regular anchor
+const Link = ({ href, children, ...props }: { href: string; children: React.ReactNode; [key: string]: unknown }) => (
+  <a href={href} {...props}>{children}</a>
+);
 import { useState, useEffect, useRef } from "react";
 
 interface BentoItem {
@@ -355,7 +359,7 @@ const TypingCodeFeature = ({ text }: { text: string }) => {
     useEffect(() => {
         setDisplayedText("");
         setCurrentIndex(0);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+         
     }, []);
 
     return (
@@ -635,6 +639,7 @@ const BentoCard = ({ item }: { item: BentoItem }) => {
                     hover:bg-gradient-to-b hover:from-neutral-50/60 hover:via-neutral-50/30 hover:to-neutral-50/20
                     dark:hover:from-neutral-800/60 dark:hover:via-neutral-800/30 dark:hover:to-neutral-800/20
                     transition-all duration-500 ease-out ${item.className}
+                    ${isHovered ? 'scale-[1.02]' : ''}
                 `}
                 tabIndex={0}
                 aria-label={`${item.title} - ${item.description}`}
