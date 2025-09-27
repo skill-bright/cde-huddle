@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { TeamMember } from '@/domain/entities/TeamMember';
 import { StandupEntry } from '@/domain/entities/StandupEntry';
 import { WeeklyReport } from '@/domain/entities/WeeklyReport';
-import { StoredWeeklyReport } from '@/types';
+import { StoredWeeklyReport } from '@/domain/repositories/StandupRepository';
 import { GetTodayStandupUseCase } from '@/application/use-cases/GetTodayStandupUseCase';
 import { SaveTeamMemberUpdateUseCase } from '@/application/use-cases/SaveTeamMemberUpdateUseCase';
 import { GenerateWeeklyReportUseCase } from '@/application/use-cases/GenerateWeeklyReportUseCase';
@@ -80,12 +80,7 @@ export function useStandupData() {
     try {
       setStoredReportsLoading(true);
       const reports = await repository.getStoredWeeklyReports(10);
-      // Transform domain reports to old format
-      const transformedReports = reports.map(report => ({
-        ...report,
-        reportData: report.reportData.toJSON()
-      }));
-      setStoredWeeklyReports(transformedReports);
+      setStoredWeeklyReports(reports);
     } catch (err) {
       console.error('Failed to fetch stored weekly reports:', err);
       setStoredWeeklyReports([]);

@@ -7,9 +7,8 @@ import { useStandupData } from '@/presentation/hooks/useStandupData';
 import { useDateUtils } from '@/presentation/hooks/useDateUtils';
 
 import { TeamMember } from '@/domain/entities/TeamMember';
-import { StandupEntry } from '@/domain/entities/StandupEntry';
 import { WeeklyReport as WeeklyReportEntity } from '@/domain/entities/WeeklyReport';
-import { StoredWeeklyReport } from '@/types';
+import { StoredWeeklyReport } from '@/domain/repositories/StandupRepository';
 import { LightRaysContainer } from '@/components/bits/light-ray';
 import ParticleButton from '@/components/kokonutui/particle-button';
 import { WeeklyReport } from '@/presentation/components/WeeklyReport/WeeklyReport';
@@ -118,7 +117,8 @@ export default function StandupDashboard({ initialTab = 'daily' }: StandupDashbo
 
   const handleViewStoredReport = useCallback((report: StoredWeeklyReport) => {
     if (report.reportData) {
-      setWeeklyReport(report.reportData as unknown as WeeklyReportEntity);
+      // The reportData is already a WeeklyReport domain entity
+      setWeeklyReport(report.reportData);
       navigate(`/weekly-reports?report=${report.id}`);
     }
   }, [setWeeklyReport, navigate]);
@@ -169,7 +169,6 @@ export default function StandupDashboard({ initialTab = 'daily' }: StandupDashbo
         {activeTab === 'daily' && (
           <DailyStandupTab
             teamMembers={teamMembers}
-            standupHistory={standupHistory}
             showHistory={showHistory}
             onToggleHistory={() => setShowHistory(!showHistory)}
             onEditMember={handleEditMember}
@@ -403,14 +402,12 @@ function NavigationTabs({
 // Daily standup tab component
 function DailyStandupTab({
   teamMembers,
-  standupHistory,
   showHistory,
   onToggleHistory,
   onEditMember,
   onAddMember
 }: {
   teamMembers: TeamMember[];
-  standupHistory: StandupEntry[];
   showHistory: boolean;
   onToggleHistory: () => void;
   onEditMember: (member: TeamMember) => void;
@@ -448,7 +445,6 @@ function DailyStandupTab({
 
       {/* Standup History */}
       <StandupHistory
-        history={standupHistory}
         isOpen={showHistory}
         onClose={() => onToggleHistory()}
       />

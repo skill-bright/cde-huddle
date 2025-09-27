@@ -6,6 +6,24 @@ import { useDateUtils } from '@/presentation/hooks/useDateUtils';
 
 import { WeeklyReport } from '@/domain/entities/WeeklyReport';
 
+/**
+ * Ensure the report is a proper WeeklyReport domain entity
+ * If it's a plain object, recreate it as a domain entity
+ */
+function ensureWeeklyReportEntity(report: WeeklyReport | Record<string, unknown>): WeeklyReport {
+  // If it already has the methods, return as is
+  if (report && typeof (report as WeeklyReport).getTotalUpdates === 'function' && typeof (report as WeeklyReport).getUniqueMembers === 'function') {
+    return report as WeeklyReport;
+  }
+  
+  // If it's a plain object, recreate it as a domain entity
+  if (report && (report as Record<string, unknown>).weekStart && (report as Record<string, unknown>).weekEnd && (report as Record<string, unknown>).entries && (report as Record<string, unknown>).summary) {
+    return WeeklyReport.fromJSON(report as Record<string, unknown>);
+  }
+  
+  throw new Error('Invalid report object provided');
+}
+
 interface WeeklyReportEntriesProps {
   report: WeeklyReport;
 }
@@ -17,6 +35,13 @@ interface WeeklyReportEntriesProps {
 export function WeeklyReportEntries({ report }: WeeklyReportEntriesProps) {
   const [activeTab, setActiveTab] = useState<string>('all');
   const { formatDate } = useDateUtils();
+  
+  if (!report) {
+    return <div>No report available</div>;
+  }
+  
+  // Ensure the report is a proper domain entity
+  const weeklyReport = ensureWeeklyReportEntity(report);
 
   // Helper function to safely render HTML content
   const renderHtmlContent = (content: string) => {
@@ -45,7 +70,7 @@ export function WeeklyReportEntries({ report }: WeeklyReportEntriesProps) {
   const getUniqueTeamMembers = () => {
     const memberMap = new Map<string, { name: string; role: string }>();
     
-    report.entries.forEach(entry => {
+    weeklyReport.entries.forEach(entry => {
       entry.teamMembers.forEach(member => {
         if (!memberMap.has(member.name)) {
           memberMap.set(member.name, {
@@ -61,14 +86,14 @@ export function WeeklyReportEntries({ report }: WeeklyReportEntriesProps) {
 
   // Get entries for a specific team member
   const getMemberEntries = (memberName: string) => {
-    return report.entries.map(entry => ({
+    return weeklyReport.entries.map(entry => ({
       ...entry,
       teamMembers: entry.teamMembers.filter(member => member.name === memberName)
     })).filter(entry => entry.teamMembers.length > 0);
   };
 
   const uniqueMembers = getUniqueTeamMembers();
-  const filteredEntries = activeTab === 'all' ? report.entries : getMemberEntries(activeTab);
+  const filteredEntries = activeTab === 'all' ? weeklyReport.entries : getMemberEntries(activeTab);
 
   return (
     <motion.div 
@@ -96,7 +121,7 @@ export function WeeklyReportEntries({ report }: WeeklyReportEntriesProps) {
           >
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4" />
-              All Members ({report.getUniqueMembers()})
+                All Members ({weeklyReport.getUniqueMembers()})
             </div>
           </motion.button>
           {uniqueMembers.map((member) => (

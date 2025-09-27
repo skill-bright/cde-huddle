@@ -5,7 +5,7 @@ import { AlertTriangle, FileText } from 'lucide-react';
 import { useAIGeneration } from '@/presentation/hooks/useAIGeneration';
 
 import { WeeklyReport as WeeklyReportType } from '@/domain/entities/WeeklyReport';
-import { StoredWeeklyReport } from '@/types';
+import { StoredWeeklyReport } from '@/domain/repositories/StandupRepository';
 import { WeeklyReportHeader } from '@/presentation/components/WeeklyReport/WeeklyReportHeader';
 import { WeeklyReportStats } from '@/presentation/components/WeeklyReport/WeeklyReportStats';
 import { WeeklyReportSummary } from '@/presentation/components/WeeklyReport/WeeklyReportSummary';

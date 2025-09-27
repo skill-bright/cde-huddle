@@ -1,7 +1,7 @@
 import { StandupRepository, StoredWeeklyReport } from '@/domain/repositories/StandupRepository';
+import { WeeklyReport } from '@/domain/entities/WeeklyReport';
 import { TeamMember } from '@/domain/entities/TeamMember';
 import { StandupEntry } from '@/domain/entities/StandupEntry';
-import { WeeklyReport } from '@/domain/entities/WeeklyReport';
 import { WeeklyReportSummary, MemberSummary } from '@/domain/value-objects/WeeklyReportSummary';
 import { supabase } from '@/lib/supabase';
 
@@ -362,13 +362,13 @@ export class SupabaseStandupRepository implements StandupRepository {
         weekEnd: report.week_end,
         totalUpdates: report.total_updates,
         uniqueMembers: report.unique_members,
-        reportData: report.report_data,
+        reportData: report.report_data ? WeeklyReport.fromJSON(report.report_data) : new WeeklyReport('', '', [], new WeeklyReportSummary([], [], [], '', [], {})),
         generatedAt: report.generated_at,
         status: report.status,
         error: report.error,
         createdAt: report.created_at,
         updatedAt: report.updated_at
-      })) || [];
+      })).filter(report => report.reportData) || [];
     } catch (error) {
       console.error('Failed to get stored weekly reports:', error);
       return [];

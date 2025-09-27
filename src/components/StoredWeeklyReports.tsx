@@ -1,4 +1,4 @@
-import { StoredWeeklyReport } from '../types';
+import { StoredWeeklyReport } from '@/domain/repositories/StandupRepository';
 import { Calendar, FileText, Users, Clock, CheckCircle, XCircle, AlertTriangle, Eye } from 'lucide-react';
 
 interface StoredWeeklyReportsProps {
