@@ -45,8 +45,16 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Create trigger to automatically update updated_at
-CREATE TRIGGER update_weekly_reports_updated_at
-  BEFORE UPDATE ON weekly_reports
-  FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
+-- Create trigger to automatically update updated_at (if not exists)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.triggers 
+        WHERE trigger_name = 'update_weekly_reports_updated_at'
+    ) THEN
+        CREATE TRIGGER update_weekly_reports_updated_at
+          BEFORE UPDATE ON weekly_reports
+          FOR EACH ROW
+          EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+END $$;

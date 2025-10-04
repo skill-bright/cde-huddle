@@ -12,19 +12,19 @@ A modern team standup application with AI-powered weekly report consolidation.
 - Responsive design with masonry layout
 
 ### Weekly Reports (NEW!)
-- **Automatic Generation**: Reports are automatically generated every Friday at 12:00 PM PST
-- **No Manual Action Required**: Reports are created automatically based on your team's standup data
-- **Stored Reports**: View and manage previously generated weekly reports
-- **AI-Powered Analysis**: Uses Anthropic's Claude AI to generate comprehensive weekly summaries
-- **Consolidated Insights**: Key accomplishments, ongoing work, blockers, and recommendations
-- **Individual Member Summaries**: Detailed breakdown for each team member including:
+- **✅ Automatic Generation**: Reports are automatically generated every Friday at 12:00 PM PST using Supabase Edge Functions and pg_cron
+- **✅ No Manual Action Required**: Reports are created automatically based on your team's standup data
+- **✅ Stored Reports**: View and manage previously generated weekly reports
+- **✅ AI-Powered Analysis**: Uses Anthropic's Claude AI to generate comprehensive weekly summaries
+- **✅ Consolidated Insights**: Key accomplishments, ongoing work, blockers, and recommendations
+- **✅ Individual Member Summaries**: Detailed breakdown for each team member including:
   - Key contributions and achievements
   - Progress summary
   - Concerns and blockers
   - Next week's focus areas
-- **Export Functionality**: Download reports as CSV files
-- **Team Insights**: AI-generated observations about team productivity and patterns
-- **Browser Notifications**: Get notified when new reports are automatically generated
+- **✅ Export Functionality**: Download reports as CSV files
+- **✅ Team Insights**: AI-generated observations about team productivity and patterns
+- **✅ Automated Scheduling**: Powered by Supabase Edge Functions and pg_cron for reliable automation
 
 ## Setup
 
@@ -57,7 +57,13 @@ VITE_ANTHROPIC_API_KEY=your_anthropic_api_key
 4. Set up the database:
 Run the Supabase migrations in the `supabase/migrations/` directory to create the required tables.
 
-5. Start the development server:
+5. Deploy automated weekly reports (optional):
+```bash
+# Deploy the automated weekly report generation system
+./scripts/deploy-automated-reports.sh
+```
+
+6. Start the development server:
 ```bash
 pnpm dev
 ```

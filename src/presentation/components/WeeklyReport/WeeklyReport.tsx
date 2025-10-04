@@ -159,59 +159,78 @@ export function WeeklyReport({
 
   // Default view: Show stored reports with generation options
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-8">
+      {/* Header Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+        className="flex items-center justify-between"
+      >
         <div>
-          <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
-            Weekly Reports
-          </h2>
-          <p className="text-gray-600 dark:text-gray-400">Automatically generated standup summaries with AI insights</p>
+          <h2 className="section-header">Weekly Reports</h2>
+          <p className="section-subtitle">AI-powered insights from your team's standup data</p>
         </div>
         {toGenerateReportManually && (
-          <button
-            onClick={onGenerateReportManually}
-            disabled={generatingReport}
-            className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white dark:text-white bg-blue-600 dark:bg-blue-500 border border-blue-600 dark:border-blue-500 rounded-md hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
           >
-            {generatingReport ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                <span>Generating...</span>
-              </>
-            ) : (
-              <>
-                <FileText className="w-4 h-4" />
-                <span>Generate This Week</span>
-              </>
-            )}
-          </button>
+            <button
+              onClick={onGenerateReportManually}
+              disabled={generatingReport}
+              className="btn-modern btn-primary flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {generatingReport ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  <span>Generating...</span>
+                </>
+              ) : (
+                <>
+                  <FileText className="w-5 h-5" />
+                  <span>Generate This Week</span>
+                </>
+              )}
+            </button>
+          </motion.div>
         )}
-      </div>
+      </motion.div>
 
-      {/* Generation Info */}
-      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700/50 rounded-md p-4">
-        <div className="flex items-start">
-          <div className="flex-shrink-0">
-            <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+      {/* Generation Info Card */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.6 }}
+        className="card-modern p-6 bg-gradient-to-r from-blue-50/60 to-blue-100/40 dark:from-blue-900/20 dark:to-blue-800/20 border-blue-200/50 dark:border-blue-700/30"
+      >
+        <div className="flex items-start gap-4">
+          <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center flex-shrink-0">
+            <FileText className="w-6 h-6 text-white" />
           </div>
-          <div className="ml-3">
-            <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200">Weekly Report Generation</h3>
-            <p className="mt-1 text-sm text-blue-700 dark:text-blue-300">
-              Weekly reports are automatically generated every Friday at 12:00 PM PST.
+          <div className="flex-1">
+            <h3 className="text-lg font-bold text-blue-800 dark:text-blue-200 mb-2">Automated Report Generation</h3>
+            <p className="text-blue-700 dark:text-blue-300 leading-relaxed">
+              Weekly reports are automatically generated every Friday at 12:00 PM PST using AI to analyze your team's standup data and provide actionable insights.
             </p>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Stored Reports */}
-      <StoredWeeklyReports
-        reports={storedReports}
-        loading={storedReportsLoading}
-        onViewReport={onViewStoredReport}
-        onGenerateReportManually={onGenerateReportManually}
-        generatingReport={generatingReport}
-      />
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.8 }}
+      >
+        <StoredWeeklyReports
+          reports={storedReports}
+          loading={storedReportsLoading}
+          onViewReport={onViewStoredReport}
+          onGenerateReportManually={onGenerateReportManually}
+          generatingReport={generatingReport}
+        />
+      </motion.div>
     </div>
   );
 }

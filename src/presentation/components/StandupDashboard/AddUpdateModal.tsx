@@ -21,7 +21,7 @@ const RichTextArea = React.memo(({
   value, 
   onChange, 
   placeholder, 
-  minHeight = '120px'
+  minHeight = '200px'
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -114,7 +114,7 @@ export function AddUpdateModal({
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
           className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-white/20 dark:border-gray-700/20"
         >
-          <div className="sticky top-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-b border-white/20 dark:border-gray-700/20 px-8 py-6 flex items-center justify-between rounded-t-3xl">
+          <div className="sticky top-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-b border-white/20 dark:border-gray-700/20 px-8 py-6 flex items-center justify-between rounded-t-3xl z-50">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-gradient-to-br from-blue-500 via-purple-500 to-teal-500 rounded-2xl flex items-center justify-center shadow-lg">
                 <Sparkles className="text-white" size={24} />
@@ -208,7 +208,7 @@ export function AddUpdateModal({
               value={formData.yesterday}
               onChange={handleYesterdayChange}
               placeholder={`Describe your accomplishments from ${getPreviousBusinessDayLabel.includes('Friday') ? 'Friday' : 'yesterday'}...`}
-              minHeight="180px"
+              minHeight="400px"
             />
           </motion.div>
 
@@ -230,7 +230,7 @@ export function AddUpdateModal({
               value={formData.today}
               onChange={handleTodayChange}
               placeholder="Describe your plans for today..."
-              minHeight="180px"
+              minHeight="400px"
             />
           </motion.div>
 
@@ -252,7 +252,7 @@ export function AddUpdateModal({
               value={formData.blockers}
               onChange={handleBlockersChange}
               placeholder="Any obstacles or challenges you're facing..."
-              minHeight="180px"
+              minHeight="400px"
             />
           </motion.div>
 

@@ -31,7 +31,14 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
     placeholder: placeholder || 'Start typing...',
     branding: false,
     elementpath: false,
-    resize: true,
+    resize: 'vertical',
+    resize_use_css: false,
+    resize_overflow: false,
+    resize_overflow_x: false,
+    resize_overflow_y: false,
+    resize_overflow_xy: false,
+    resize_overflow_auto: false,
+    resize_handle_style: 'margin: 0; padding: 0; border: none; background: transparent;',
     statusbar: true,
     min_height: parseInt(minHeight),
     max_height: 600,
@@ -39,12 +46,81 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
     content_css: isDarkMode ? 'dark' : 'default',
     // Enhanced styling options
     setup: (editor: unknown) => {
-      const editorInstance = editor as { on: (event: string, callback: () => void) => void; getContainer: () => HTMLElement };
+      const editorInstance = editor as { 
+        on: (event: string, callback: () => void) => void; 
+        getContainer: () => HTMLElement;
+        getBody: () => HTMLElement;
+      };
+      
       editorInstance.on('init', () => {
         // Add custom classes to the editor
-        editorInstance.getContainer().classList.add('custom-tinymce-editor');
+        const container = editorInstance.getContainer();
+        container.classList.add('custom-tinymce-editor');
         if (isDarkMode) {
-          editorInstance.getContainer().classList.add('dark-mode');
+          container.classList.add('dark-mode');
+        }
+        
+        // Handle resize events for smooth dragging
+        const resizeHandle = container.querySelector('.tox-statusbar__resize-handle') as HTMLElement;
+        if (resizeHandle) {
+          let isResizing = false;
+          
+          const startResize = () => {
+            isResizing = true;
+            container.classList.add('resizing');
+            
+            // Force disable all transitions and set fixed positioning
+            const allElements = container.querySelectorAll('*');
+            allElements.forEach(el => {
+              const element = el as HTMLElement;
+              element.style.transition = 'none';
+              element.style.animation = 'none';
+              element.style.willChange = 'auto';
+            });
+            
+            // Ensure the statusbar and resize handle maintain their position
+            const statusbar = container.querySelector('.tox-statusbar') as HTMLElement;
+            const resizeHandle = container.querySelector('.tox-statusbar__resize-handle') as HTMLElement;
+            
+            if (statusbar) {
+              statusbar.style.position = 'relative';
+              statusbar.style.zIndex = '1000';
+              statusbar.style.flexShrink = '0';
+            }
+            
+            if (resizeHandle) {
+              resizeHandle.style.position = 'absolute';
+              resizeHandle.style.bottom = '0';
+              resizeHandle.style.left = '0';
+              resizeHandle.style.right = '0';
+              resizeHandle.style.width = '100%';
+              resizeHandle.style.height = '8px';
+              resizeHandle.style.zIndex = '1001';
+            }
+          };
+          
+          const endResize = () => {
+            if (isResizing) {
+              isResizing = false;
+              container.classList.remove('resizing');
+              // Re-enable transitions after a short delay
+              setTimeout(() => {
+                const allElements = container.querySelectorAll('*');
+                allElements.forEach(el => {
+                  (el as HTMLElement).style.transition = '';
+                  (el as HTMLElement).style.animation = '';
+                });
+              }, 100);
+            }
+          };
+          
+          resizeHandle.addEventListener('mousedown', startResize);
+          document.addEventListener('mouseup', endResize);
+          document.addEventListener('mouseleave', endResize);
+          
+          // Also handle touch events for mobile
+          resizeHandle.addEventListener('touchstart', startResize);
+          document.addEventListener('touchend', endResize);
         }
       });
     },
