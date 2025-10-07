@@ -12,6 +12,8 @@ export class TeamMemberService {
     { id: '3', name: 'Francois', role: 'Developer' },
     { id: '4', name: 'Isik', role: 'Marketing' },
     { id: '5', name: 'Atena', role: 'Developer' },
+    { id: '6', name: 'Raphael', role: 'Sales' },
+    { id: '7', name: 'Gyunay', role: 'Developer' },
   ];
 
   /**
