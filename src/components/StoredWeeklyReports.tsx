@@ -1,5 +1,7 @@
 import { StoredWeeklyReport } from '@/domain/repositories/StandupRepository';
 import { Calendar, FileText, Users, Clock, CheckCircle, XCircle, AlertTriangle, Eye } from 'lucide-react';
+import { PasskeyModal } from './PasskeyModal';
+import { usePasskey } from '@/presentation/hooks/usePasskey';
 
 interface StoredWeeklyReportsProps {
   reports: StoredWeeklyReport[];
@@ -11,6 +13,7 @@ interface StoredWeeklyReportsProps {
 }
 
 export function StoredWeeklyReports({ reports, loading, onViewReport, onGenerateReportManually, toGenerateReportManually = false, generatingReport = false }: StoredWeeklyReportsProps) {
+  const { isModalOpen, modalConfig, showPasskeyModal, handlePasskeyConfirm, handlePasskeyCancel } = usePasskey();
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       weekday: 'long',
@@ -26,6 +29,17 @@ export function StoredWeeklyReports({ reports, loading, onViewReport, onGenerate
       minute: '2-digit',
       timeZone: 'America/Vancouver'
     });
+  };
+
+  const handleGenerateWithPasskey = () => {
+    if (!onGenerateReportManually) return;
+    
+    showPasskeyModal(
+      onGenerateReportManually,
+      'Generate Weekly Report',
+      'Please enter the passkey to generate this week\'s report. This action will create a new weekly report with AI analysis.',
+      'Generate Report'
+    );
   };
 
   const getStatusIcon = (status: string) => {
@@ -88,33 +102,48 @@ export function StoredWeeklyReports({ reports, loading, onViewReport, onGenerate
             Weekly reports are automatically generated every Friday at 12:00 PM PST.
           </p>
           
-          {/* Setup Message - Check if this is due to missing table */}
-          <div className="bg-yellow-50/80 dark:bg-yellow-900/20 border border-yellow-200/50 dark:border-yellow-700/50 rounded-xl p-4 mb-4 backdrop-blur-sm">
+          {/* Information about automatic generation */}
+          <div className="bg-blue-50/80 dark:bg-blue-900/20 border border-blue-200/50 dark:border-blue-700/50 rounded-xl p-4 mb-4 backdrop-blur-sm">
             <div className="flex items-start">
-              <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 mt-0.5 mr-3" />
-              <div className="text-left">
-                <h4 className="text-sm font-medium text-yellow-800 dark:text-yellow-300 mb-1">Database Setup Required</h4>
-                <p className="text-sm text-yellow-700 dark:text-yellow-400 mb-2">
-                  The weekly reports feature requires the database to be properly set up. 
-                  If you're seeing this message, the weekly_reports table may not exist.
+              <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 mr-3" />
+              <div className="text-left flex-1">
+                <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-1">Automatic Weekly Reports</h4>
+                <p className="text-sm text-blue-700 dark:text-blue-400 mb-2">
+                  Weekly reports are automatically generated every Friday at 12:00 PM PST. 
+                  The first report will be created after the next scheduled run.
                 </p>
-                <div className="text-xs text-yellow-600 dark:text-yellow-400 space-y-1">
-                  <p><strong>To fix this:</strong></p>
-                  <ol className="list-decimal list-inside space-y-1 ml-2">
-                    <li>Ensure Supabase is properly configured with environment variables</li>
-                    <li>Run the database migrations in the supabase/migrations/ directory</li>
-                    <li>Apply the 20250813000000_add_weekly_reports.sql migration</li>
-                  </ol>
+                <div className="text-xs text-blue-600 dark:text-blue-400 space-y-1">
+                  <p><strong>Next automatic generation:</strong> This Friday at 12:00 PM PST</p>
+                  {toGenerateReportManually && onGenerateReportManually && (
+                    <p><strong>Manual generation:</strong> You can also generate reports manually using the button below</p>
+                  )}
                 </div>
               </div>
             </div>
           </div>
           
-          <div className="bg-blue-50/80 dark:bg-blue-900/20 border border-blue-200/50 dark:border-blue-700/50 rounded-xl p-3 backdrop-blur-sm">
-            <p className="text-sm text-blue-700 dark:text-blue-300">
-              <strong>Next automatic generation:</strong> Friday at 12:00 PM PST
-            </p>
-          </div>
+          {/* Manual generation button for when there are no reports */}
+          {toGenerateReportManually && onGenerateReportManually && (
+            <div className="flex justify-center mb-4">
+              <button
+                onClick={handleGenerateWithPasskey}
+                disabled={generatingReport}
+                className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 border border-blue-600 dark:border-blue-500 rounded-xl hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
+              >
+                {generatingReport ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Generating...</span>
+                  </>
+                ) : (
+                  <>
+                    <FileText className="w-4 h-4" />
+                    <span>Generate This Week's Report</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -130,7 +159,7 @@ export function StoredWeeklyReports({ reports, loading, onViewReport, onGenerate
           </div>
           {toGenerateReportManually && (
             <button
-              onClick={onGenerateReportManually}
+              onClick={handleGenerateWithPasskey}
               disabled={generatingReport}
               className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 border border-blue-600 dark:border-blue-500 rounded-xl hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
             >
@@ -212,6 +241,17 @@ export function StoredWeeklyReports({ reports, loading, onViewReport, onGenerate
           <p>📅 <strong>Automatic Generation:</strong> Reports are automatically generated every Friday at 12:00 PM PST</p>
         </div>
       </div>
+
+      {/* Passkey Modal */}
+      <PasskeyModal
+        isOpen={isModalOpen}
+        onClose={handlePasskeyCancel}
+        onConfirm={handlePasskeyConfirm}
+        title={modalConfig.title}
+        description={modalConfig.description}
+        actionLabel={modalConfig.actionLabel}
+        loading={generatingReport}
+      />
     </div>
   );
 }

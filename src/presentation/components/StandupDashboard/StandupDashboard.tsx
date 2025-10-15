@@ -194,6 +194,7 @@ export default function StandupDashboard({ initialTab = 'daily' }: StandupDashbo
                   storedReportsLoading={storedReportsLoading}
                   onViewStoredReport={handleViewStoredReport}
                   onGenerateReportManually={handleGenerateReportManually}
+                  toGenerateReportManually={true}
                   generatingReport={generatingReport}
                 />
               )}

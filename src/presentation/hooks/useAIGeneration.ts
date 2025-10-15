@@ -2,7 +2,8 @@ import { useState, useCallback, useMemo } from 'react';
 
 import { TeamMember } from '@/domain/entities/TeamMember';
 import { WeeklyReport } from '@/domain/entities/WeeklyReport';
-import { AnthropicAIService } from '@/infrastructure/services/AnthropicAIService';
+import { SecureAnthropicAIService } from '@/infrastructure/services/SecureAnthropicAIService';
+import { useToast } from './useToast';
 
 /**
  * Custom hook for AI generation operations
@@ -12,7 +13,8 @@ export function useAIGeneration() {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  const aiService = useMemo(() => new AnthropicAIService(), []);
+  const aiService = useMemo(() => new SecureAnthropicAIService(), []);
+  const { showError, showSuccess } = useToast();
 
   /**
    * Generate content for a specific field
@@ -88,15 +90,30 @@ export function useAIGeneration() {
       
       const newSummary = await aiService.regenerateWeeklySummary(report);
       
+      // Show success toast
+      showSuccess(
+        'AI Summary Regenerated',
+        'The weekly report summary has been successfully regenerated.',
+        4000
+      );
+      
       return newSummary;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to regenerate summary';
       setError(errorMessage);
+      
+      // Show error toast
+      showError(
+        'Summary Regeneration Failed',
+        errorMessage,
+        8000
+      );
+      
       throw new Error(errorMessage);
     } finally {
       setGenerating(false);
     }
-  }, [aiService]);
+  }, [aiService, showError, showSuccess]);
 
   /**
    * Clear any existing errors

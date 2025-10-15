@@ -4,6 +4,8 @@ import { Lightbulb, TrendingUp, Clock, AlertTriangle, Users, User, RefreshCw } f
 
 import ParticleButton from '@/components/kokonutui/particle-button';
 import { WeeklyReportSummary as WeeklyReportSummaryType } from '@/domain/value-objects/WeeklyReportSummary';
+import { PasskeyModal } from '@/components/PasskeyModal';
+import { usePasskey } from '@/presentation/hooks/usePasskey';
 
 interface WeeklyReportSummaryProps {
   summary: WeeklyReportSummaryType;
@@ -17,6 +19,16 @@ interface WeeklyReportSummaryProps {
  */
 export function WeeklyReportSummary({ summary, onRegenerate, regenerating }: WeeklyReportSummaryProps) {
   const [activeTab, setActiveTab] = useState<string>('all');
+  const { isModalOpen, modalConfig, showPasskeyModal, handlePasskeyConfirm, handlePasskeyCancel } = usePasskey();
+
+  const handleRegenerateWithPasskey = () => {
+    showPasskeyModal(
+      onRegenerate,
+      'Regenerate AI Summary',
+      'Please enter the passkey to regenerate the AI summary for this weekly report. This will create a new AI analysis of the team\'s work.',
+      'Regenerate Summary'
+    );
+  };
 
   // Helper function to safely render HTML content
   const renderHtmlContent = (content: string) => {
@@ -59,7 +71,7 @@ export function WeeklyReportSummary({ summary, onRegenerate, regenerating }: Wee
           AI-Generated Summary
         </h3>
         <ParticleButton
-          onClick={onRegenerate}
+          onClick={handleRegenerateWithPasskey}
           disabled={regenerating}
           className="px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl hover:from-orange-600 hover:to-red-600 transition-all duration-200 flex items-center gap-2 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
         >
@@ -291,6 +303,17 @@ export function WeeklyReportSummary({ summary, onRegenerate, regenerating }: Wee
           })()}
         </div>
       )}
+
+      {/* Passkey Modal */}
+      <PasskeyModal
+        isOpen={isModalOpen}
+        onClose={handlePasskeyCancel}
+        onConfirm={handlePasskeyConfirm}
+        title={modalConfig.title}
+        description={modalConfig.description}
+        actionLabel={modalConfig.actionLabel}
+        loading={regenerating}
+      />
     </motion.div>
   );
 }

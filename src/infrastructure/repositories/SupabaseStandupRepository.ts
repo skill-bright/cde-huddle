@@ -382,7 +382,7 @@ export class SupabaseStandupRepository implements StandupRepository {
     try {
       const { error } = await supabase
         .from('weekly_reports')
-        .insert({
+        .upsert({
           week_start: report.weekStart,
           week_end: report.weekEnd,
           total_updates: report.getTotalUpdates(),
@@ -390,6 +390,8 @@ export class SupabaseStandupRepository implements StandupRepository {
           report_data: report.toJSON(),
           status: 'generated',
           generated_at: new Date().toISOString()
+        }, {
+          onConflict: 'week_start,week_end'
         });
 
       if (error) throw error;

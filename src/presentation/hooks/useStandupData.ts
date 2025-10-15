@@ -8,7 +8,8 @@ import { GetTodayStandupUseCase } from '@/application/use-cases/GetTodayStandupU
 import { SaveTeamMemberUpdateUseCase } from '@/application/use-cases/SaveTeamMemberUpdateUseCase';
 import { GenerateWeeklyReportUseCase } from '@/application/use-cases/GenerateWeeklyReportUseCase';
 import { SupabaseStandupRepository } from '@/infrastructure/repositories/SupabaseStandupRepository';
-import { AnthropicAIService } from '@/infrastructure/services/AnthropicAIService';
+import { SecureAnthropicAIService } from '@/infrastructure/services/SecureAnthropicAIService';
+import { useToast } from './useToast';
 
 /**
  * Custom hook for managing standup data
@@ -29,10 +30,13 @@ export function useStandupData() {
   const [weeklyReportError, setWeeklyReportError] = useState<string | null>(null);
   const [storedWeeklyReports, setStoredWeeklyReports] = useState<StoredWeeklyReport[]>([]);
   const [storedReportsLoading, setStoredReportsLoading] = useState(false);
+  
+  // Toast notifications
+  const { showError, showSuccess } = useToast();
 
   // Dependencies - memoized to prevent recreation on every render
   const repository = useMemo(() => new SupabaseStandupRepository(), []);
-  const aiService = useMemo(() => new AnthropicAIService(), []);
+  const aiService = useMemo(() => new SecureAnthropicAIService(), []);
   const getTodayStandupUseCase = useMemo(() => new GetTodayStandupUseCase(repository), [repository]);
   const saveTeamMemberUpdateUseCase = useMemo(() => new SaveTeamMemberUpdateUseCase(repository), [repository]);
   const generateWeeklyReportUseCase = useMemo(() => new GenerateWeeklyReportUseCase(repository, aiService), [repository, aiService]);
@@ -121,21 +125,58 @@ export function useStandupData() {
   }, [generateWeeklyReportUseCase]);
 
   const generateCurrentWeekReportManually = useCallback(async () => {
-    const today = new Date();
-    const dayOfWeek = today.getDay();
-    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    
-    const monday = new Date(today);
-    monday.setDate(today.getDate() - daysToMonday);
-    
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-    
-    const weekStart = monday.toLocaleDateString('en-CA', { timeZone: 'America/Vancouver' });
-    const weekEnd = sunday.toLocaleDateString('en-CA', { timeZone: 'America/Vancouver' });
-    
-    await generateWeeklyReport(weekStart, weekEnd, true);
-  }, [generateWeeklyReport]);
+    console.log('🚀 generateCurrentWeekReportManually called!');
+    try {
+      const today = new Date();
+      const dayOfWeek = today.getDay();
+      const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      
+      const monday = new Date(today);
+      monday.setDate(today.getDate() - daysToMonday);
+      
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      
+      const weekStart = monday.toLocaleDateString('en-CA', { timeZone: 'America/Vancouver' });
+      const weekEnd = sunday.toLocaleDateString('en-CA', { timeZone: 'America/Vancouver' });
+      
+      console.log(`📅 Generating manual weekly report for ${weekStart} to ${weekEnd}`);
+      
+      // Generate the report
+      const report = await generateWeeklyReportUseCase.execute(weekStart, weekEnd, true);
+      console.log('Report generated successfully:', report);
+      
+      // Save the report to the database
+      await repository.saveWeeklyReport(report);
+      console.log('Report saved to database successfully');
+      
+      // Update the UI state
+      setWeeklyReport(report);
+      
+      // Refresh the stored reports list
+      await fetchStoredWeeklyReports();
+      console.log('Stored reports list refreshed');
+      
+      // Show success toast
+      showSuccess(
+        'Weekly Report Generated',
+        'Your weekly report has been successfully generated and saved.',
+        4000
+      );
+    } catch (error) {
+      console.error('Failed to generate and save weekly report:', error);
+      
+      // Show error toast with specific message
+      const errorMessage = error instanceof Error ? error.message : 'Failed to generate weekly report';
+      showError(
+        'Report Generation Failed',
+        errorMessage,
+        8000
+      );
+      
+      throw error;
+    }
+  }, [generateWeeklyReportUseCase, repository, setWeeklyReport, fetchStoredWeeklyReports, showError, showSuccess]);
 
   const getPreviousWeekDates = useCallback(() => {
     const today = new Date();

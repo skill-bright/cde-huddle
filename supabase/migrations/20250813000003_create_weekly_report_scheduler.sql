@@ -1,16 +1,4 @@
--- Fix existing objects to handle conflicts gracefully
--- This migration ensures all objects exist without conflicts
-
--- Drop and recreate the trigger to avoid conflicts
-DROP TRIGGER IF EXISTS update_weekly_reports_updated_at ON weekly_reports;
-
--- Recreate the trigger
-CREATE TRIGGER update_weekly_reports_updated_at
-  BEFORE UPDATE ON weekly_reports
-  FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
-
--- Ensure the generate_weekly_report function exists (in case it was created in a previous run)
+-- Create a function to generate weekly reports directly in the database
 CREATE OR REPLACE FUNCTION generate_weekly_report()
 RETURNS void AS $$
 DECLARE
@@ -116,7 +104,35 @@ EXCEPTION
 END;
 $$ LANGUAGE plpgsql;
 
--- Ensure the trigger function exists
+-- Create the scheduled job for Friday at 12:00 PM PST (20:00 UTC)
+-- Note: PST is UTC-8, so 12:00 PM PST = 8:00 PM UTC (20:00)
+-- But during PDT (Pacific Daylight Time), it's UTC-7, so 12:00 PM PDT = 7:00 PM UTC (19:00)
+-- We'll use 20:00 UTC to cover PST, and you may need to adjust for PDT
+
+-- Remove any existing job first (if it exists)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'weekly-report-generation') THEN
+    PERFORM cron.unschedule('weekly-report-generation');
+  END IF;
+END $$;
+
+-- Create the new scheduled job
+SELECT cron.schedule(
+  'weekly-report-generation',
+  '0 20 * * 5', -- Every Friday at 20:00 UTC (12:00 PM PST)
+  'SELECT generate_weekly_report();'
+);
+
+-- Alternative schedule for testing (every day at 2 PM UTC for testing)
+-- Uncomment the line below and comment out the above if you want to test daily
+-- SELECT cron.schedule(
+--   'weekly-report-generation-test',
+--   '0 14 * * *', -- Every day at 14:00 UTC (2:00 PM UTC)
+--   'SELECT generate_weekly_report();'
+-- );
+
+-- Create a function to manually trigger the report generation (for testing)
 CREATE OR REPLACE FUNCTION trigger_weekly_report_now()
 RETURNS text AS $$
 BEGIN
@@ -128,14 +144,3 @@ $$ LANGUAGE plpgsql;
 -- Grant necessary permissions
 GRANT EXECUTE ON FUNCTION generate_weekly_report() TO authenticated;
 GRANT EXECUTE ON FUNCTION trigger_weekly_report_now() TO authenticated;
-
--- Create the scheduled job for Friday at 12:00 PM PST (20:00 UTC)
--- Remove any existing job first
-SELECT cron.unschedule('weekly-report-generation');
-
--- Create the new scheduled job
-SELECT cron.schedule(
-  'weekly-report-generation',
-  '0 20 * * 5', -- Every Friday at 20:00 UTC (12:00 PM PST)
-  'SELECT generate_weekly_report();'
-);

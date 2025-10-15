@@ -5,6 +5,8 @@ import { useDateUtils } from '@/presentation/hooks/useDateUtils';
 
 import ParticleButton from '@/components/kokonutui/particle-button';
 import { WeeklyReport } from '@/domain/entities/WeeklyReport';
+import { PasskeyModal } from '@/components/PasskeyModal';
+import { usePasskey } from '@/presentation/hooks/usePasskey';
 
 
 interface WeeklyReportHeaderProps {
@@ -29,6 +31,18 @@ export function WeeklyReportHeader({
   showGenerateButton = false
 }: WeeklyReportHeaderProps) {
   const { formatDate } = useDateUtils();
+  const { isModalOpen, modalConfig, showPasskeyModal, handlePasskeyConfirm, handlePasskeyCancel } = usePasskey();
+
+  const handleGenerateWithPasskey = () => {
+    if (!onGenerateReport) return;
+    
+    showPasskeyModal(
+      onGenerateReport,
+      'Generate Weekly Report',
+      'Please enter the passkey to generate this week\'s report. This action will create a new weekly report with AI analysis.',
+      'Generate Report'
+    );
+  };
 
   return (
     <motion.div 
@@ -56,7 +70,7 @@ export function WeeklyReportHeader({
       <div className="flex items-center gap-3">
         {showGenerateButton && onGenerateReport && (
           <ParticleButton
-            onClick={onGenerateReport}
+            onClick={handleGenerateWithPasskey}
             disabled={generatingReport}
             className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 border border-blue-600 dark:border-blue-500 rounded-xl hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl"
           >
@@ -81,6 +95,17 @@ export function WeeklyReportHeader({
           Export CSV
         </ParticleButton>
       </div>
+
+      {/* Passkey Modal */}
+      <PasskeyModal
+        isOpen={isModalOpen}
+        onClose={handlePasskeyCancel}
+        onConfirm={handlePasskeyConfirm}
+        title={modalConfig.title}
+        description={modalConfig.description}
+        actionLabel={modalConfig.actionLabel}
+        loading={generatingReport}
+      />
     </motion.div>
   );
 }

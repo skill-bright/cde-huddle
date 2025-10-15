@@ -3,6 +3,8 @@ import { motion } from 'motion/react';
 import { AlertTriangle, FileText } from 'lucide-react';
 
 import { useAIGeneration } from '@/presentation/hooks/useAIGeneration';
+import { PasskeyModal } from '@/components/PasskeyModal';
+import { usePasskey } from '@/presentation/hooks/usePasskey';
 
 import { WeeklyReport as WeeklyReportType } from '@/domain/entities/WeeklyReport';
 import { StoredWeeklyReport } from '@/domain/repositories/StandupRepository';
@@ -43,6 +45,18 @@ export function WeeklyReport({
 }: WeeklyReportProps) {
   const [regeneratingSummary, setRegeneratingSummary] = useState<boolean>(false);
   const { regenerateWeeklySummary } = useAIGeneration();
+  const { isModalOpen, modalConfig, showPasskeyModal, handlePasskeyConfirm, handlePasskeyCancel } = usePasskey();
+
+  const handleGenerateWithPasskey = useCallback(() => {
+    if (!onGenerateReportManually) return;
+    
+    showPasskeyModal(
+      onGenerateReportManually,
+      'Generate Weekly Report',
+      'Please enter the passkey to generate this week\'s report. This action will create a new weekly report with AI analysis.',
+      'Generate Report'
+    );
+  }, [onGenerateReportManually, showPasskeyModal]);
 
   const handleRegenerateSummary = useCallback(async () => {
     if (!report) return;
@@ -177,7 +191,7 @@ export function WeeklyReport({
             whileTap={{ scale: 0.95 }}
           >
             <button
-              onClick={onGenerateReportManually}
+              onClick={handleGenerateWithPasskey}
               disabled={generatingReport}
               className="btn-modern btn-primary flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -231,6 +245,17 @@ export function WeeklyReport({
           generatingReport={generatingReport}
         />
       </motion.div>
+
+      {/* Passkey Modal */}
+      <PasskeyModal
+        isOpen={isModalOpen}
+        onClose={handlePasskeyCancel}
+        onConfirm={handlePasskeyConfirm}
+        title={modalConfig.title}
+        description={modalConfig.description}
+        actionLabel={modalConfig.actionLabel}
+        loading={generatingReport}
+      />
     </div>
   );
 }
