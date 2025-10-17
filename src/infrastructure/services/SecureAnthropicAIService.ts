@@ -68,7 +68,7 @@ export class SecureAnthropicAIService implements AIService {
   ): Promise<string> {
     try {
       const prompt = this.buildFieldContentPrompt(memberName, memberRole, fieldType, context, previousEntries);
-      
+
       const response = await this.callAnthropicAPI({
         model: 'claude-3-5-sonnet-20241022',
         max_tokens: 500,
@@ -105,10 +105,13 @@ export class SecureAnthropicAIService implements AIService {
     blockers: string;
   }> {
     try {
+      // Filter previous entries to only include entries for the selected team member
+      const memberPreviousEntries = previousEntries?.filter(member => member.name === memberName) || [];
+      
       const [yesterday, today, blockers] = await Promise.all([
-        this.generateFieldContent(memberName, memberRole, 'yesterday', undefined, previousEntries),
-        this.generateFieldContent(memberName, memberRole, 'today', undefined, previousEntries),
-        this.generateFieldContent(memberName, memberRole, 'blockers', undefined, previousEntries)
+        this.generateFieldContent(memberName, memberRole, 'yesterday', undefined, memberPreviousEntries),
+        this.generateFieldContent(memberName, memberRole, 'today', undefined, memberPreviousEntries),
+        this.generateFieldContent(memberName, memberRole, 'blockers', undefined, memberPreviousEntries)
       ]);
 
       return { yesterday, today, blockers };
@@ -221,23 +224,30 @@ Please provide a comprehensive, professional summary that would be valuable for 
     };
 
     const contextText = context ? `\n\nAdditional context: ${context}` : '';
-    const previousEntriesText = previousEntries && previousEntries.length > 0 
-      ? `\n\nPrevious team entries for context:\n${previousEntries.map(member => `- ${member.name} (${member.role})`).join('\n')}`
+    
+    // Filter previous entries to only include entries for the selected team member
+    const memberPreviousEntries = previousEntries?.filter(member => member.name === memberName) || [];
+    const previousEntriesText = memberPreviousEntries.length > 0 
+      ? `\n\nYour previous entries for context:\n${memberPreviousEntries.map(member => 
+          `- Yesterday: ${member.yesterday || 'No update'}\n- Today: ${member.today || 'No update'}\n- Blockers: ${member.blockers || 'None'}`
+        ).join('\n\n')}`
       : '';
 
     return `You are an AI assistant helping a team member write their standup update.
 
-Team Member: ${memberName}
-Role: ${memberRole}
-Field: ${fieldDescriptions[fieldType]}
+        Team Member: ${memberName}
+        Role: ${memberRole}
+        Field: ${fieldDescriptions[fieldType]}
 
-Please generate a realistic, professional standup update for ${fieldDescriptions[fieldType]}. The response should be:
-- 1-3 sentences long
-- Professional and concise
-- Relevant to their role as a ${memberRole}
-- Realistic and specific (not generic)${contextText}${previousEntriesText}
+        Please generate a realistic, professional standup update for ${fieldDescriptions[fieldType]}. The response should be:
+        - 1-3 sentences long
+        - Professional and concise
+        - Relevant to their role as a ${memberRole}
+        - Realistic and specific (not generic)
+        - Consistent with their previous work patterns${contextText}${previousEntriesText}
 
-Generate only the standup content, no additional formatting or explanations.`;
+        Generate only the standup content, no additional formatting or explanations.
+        `;
   }
 
   /**
