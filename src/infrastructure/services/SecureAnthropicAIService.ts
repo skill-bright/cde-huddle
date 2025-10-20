@@ -23,11 +23,19 @@ export class SecureAnthropicAIService implements AIService {
    */
   async generateWeeklySummary(report: WeeklyReport): Promise<WeeklyReportSummary> {
     try {
+      console.log('🤖 Generating AI summary for report:', {
+        weekStart: report.weekStart,
+        weekEnd: report.weekEnd,
+        entriesCount: report.entries.length,
+        totalUpdates: report.getTotalUpdates()
+      });
+
       const prompt = this.buildWeeklySummaryPrompt(report);
+      console.log('📝 AI Prompt length:', prompt.length);
       
       const response = await this.callAnthropicAPI({
         model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 4000,
+        max_tokens: 8000,
         messages: [
           {
             role: 'user',
@@ -42,6 +50,9 @@ export class SecureAnthropicAIService implements AIService {
       }
 
       const content = contentArray[0].text;
+      console.log('🤖 AI Response length:', content.length);
+      console.log('🤖 AI Response preview:', content.substring(0, 200) + '...');
+      
       return this.parseWeeklySummaryResponse(content);
     } catch (error) {
       console.error('Failed to generate weekly summary:', error);
@@ -122,9 +133,12 @@ export class SecureAnthropicAIService implements AIService {
   }
 
   /**
-   * Call Anthropic API through Supabase Edge Function proxy
+   * Call Anthropic API through Supabase Edge Function proxy with retry logic
    */
-  private async callAnthropicAPI(requestBody: Record<string, unknown>): Promise<Record<string, unknown>> {
+  private async callAnthropicAPI(requestBody: Record<string, unknown>, retryCount: number = 0): Promise<Record<string, unknown>> {
+    const maxRetries = 2;
+    const retryDelay = 2000; // 2 seconds
+    
     const response = await fetch(`${this.supabaseUrl}/functions/v1/anthropic-proxy`, {
       method: 'POST',
       headers: {
@@ -144,12 +158,33 @@ export class SecureAnthropicAIService implements AIService {
         throw new Error('Invalid API key. Please check your Anthropic API key configuration.');
       } else if (response.status === 404) {
         throw new Error('Edge Function not found. Please deploy the anthropic-proxy function.');
+      } else if (response.status === 429) {
+        // Retry 429 errors (rate limit) up to maxRetries times
+        if (retryCount < maxRetries) {
+          console.log(`🔄 Retrying API call due to rate limit (attempt ${retryCount + 1}/${maxRetries + 1})`);
+          await new Promise(resolve => setTimeout(resolve, retryDelay * (retryCount + 1)));
+          return this.callAnthropicAPI(requestBody, retryCount + 1);
+        }
+        throw new Error('Rate limit exceeded. Please wait a moment and try again.');
+      } else if (response.status === 529) {
+        // Retry 529 errors (service unavailable) up to maxRetries times
+        if (retryCount < maxRetries) {
+          console.log(`🔄 Retrying API call due to 529 error (attempt ${retryCount + 1}/${maxRetries + 1})`);
+          await new Promise(resolve => setTimeout(resolve, retryDelay * (retryCount + 1)));
+          return this.callAnthropicAPI(requestBody, retryCount + 1);
+        }
+        throw new Error('Service temporarily unavailable. The AI service is experiencing high load. Please try again in a few minutes.');
       } else if (response.status === 500) {
         if (errorData.error?.includes('API key')) {
           throw new Error('API key error. Please verify your Anthropic API key is correct.');
         }
         throw new Error('Server error. Please check the Edge Function deployment.');
       } else {
+        console.error('API Error Details:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData: errorData
+        });
         throw new Error(`API request failed: ${response.status} ${errorData.error || response.statusText}`);
       }
     }
@@ -167,44 +202,72 @@ export class SecureAnthropicAIService implements AIService {
       throw new Error('No entries found in report to generate summary');
     }
 
+    console.log('📝 Building prompt with entries:', entries.length);
+    entries.forEach((entry, index) => {
+      console.log(`📝 Entry ${index + 1}:`, {
+        date: entry.date,
+        teamMembersCount: entry.teamMembers.length,
+        teamMembers: entry.teamMembers.map(m => ({
+          name: m.name,
+          role: m.role,
+          hasYesterday: !!m.yesterday,
+          hasToday: !!m.today,
+          hasBlockers: !!m.blockers
+        }))
+      });
+    });
+
     const entriesText = entries.map((entry) => {
-      const member = entry.teamMembers[0]; // Assuming first team member
-      
-      return `**${member.name}** (${member.role}):
+      return entry.teamMembers.map((member) => {
+        return `**${member.name}** (${member.role}) - ${entry.date}:
 - Yesterday: ${member.yesterday || 'No update'}
 - Today: ${member.today || 'No update'}
 - Blockers: ${member.blockers || 'None'}`;
+      }).join('\n\n');
     }).join('\n\n');
 
-    return `You are an AI assistant that creates comprehensive weekly standup summaries for a development team. 
+    const prompt = `You are an AI assistant that creates comprehensive weekly standup summaries for a development team. 
 
-Please analyze the following weekly standup entries and create a detailed summary that includes:
+Please analyze the following weekly standup entries and create a detailed, in-depth summary that includes:
 
-1. **Team Overview**: A high-level summary of what the team accomplished this week
-2. **Key Achievements**: Major milestones, completed features, or significant progress
-3. **Challenges & Blockers**: Any obstacles the team faced
-4. **Individual Highlights**: Notable contributions from each team member
-5. **Next Week Focus**: Recommended priorities and goals for the upcoming week
+1. **Team Overview**: A comprehensive high-level summary of what the team accomplished this week, including major themes, patterns, and overall progress
+2. **Key Achievements**: Detailed list of major milestones, completed features, significant progress, and notable accomplishments
+3. **Challenges & Blockers**: Any obstacles, technical challenges, dependencies, or blockers the team faced, with context about their impact
+4. **Individual Highlights**: Detailed analysis of each team member's contributions, including:
+   - Specific accomplishments and deliverables
+   - Technical challenges they overcame
+   - Skills demonstrated or developed
+   - Collaboration and communication patterns
+   - Areas where they excelled or showed growth
+5. **Next Week Focus**: Strategic recommendations for priorities, goals, and areas of focus for the upcoming week
+
+**IMPORTANT**: For each team member, provide detailed, specific insights based on their actual standup entries. Don't give generic responses - analyze their specific work, challenges, and contributions mentioned in their updates.
 
 Format your response as a JSON object with the following structure:
 {
-  "teamOverview": "string",
-  "keyAchievements": ["string"],
-  "challenges": ["string"],
+  "teamOverview": "Detailed 2-3 paragraph overview of the team's week",
+  "keyAchievements": ["Specific achievement 1", "Specific achievement 2", "etc."],
+  "challenges": ["Specific challenge 1 with context", "Specific challenge 2 with context", "etc."],
   "individualHighlights": {
     "memberName": {
-      "achievements": ["string"],
-      "focus": "string",
-      "nextWeekFocus": "string"
+      "role": "Their role",
+      "achievements": ["Specific accomplishment 1", "Specific accomplishment 2", "etc."],
+      "focus": "Detailed analysis of their work focus and contributions this week",
+      "nextWeekFocus": "Specific recommendations for their next week priorities"
     }
   },
-  "nextWeekFocus": ["string"]
+  "nextWeekFocus": ["Strategic priority 1", "Strategic priority 2", "etc."]
 }
 
 Weekly Standup Entries:
 ${entriesText}
 
-Please provide a comprehensive, professional summary that would be valuable for team retrospectives and stakeholder updates.`;
+Please provide a comprehensive, professional summary that would be valuable for team retrospectives and stakeholder updates. Focus on extracting meaningful insights from the standup data and provide specific, actionable information for each team member. Be thorough and detailed in your analysis.`;
+
+    console.log('📝 Final prompt preview:', prompt.substring(0, 500) + '...');
+    console.log('📝 Entries text preview:', entriesText.substring(0, 500) + '...');
+    
+    return prompt;
   }
 
   /**
@@ -255,6 +318,8 @@ Please provide a comprehensive, professional summary that would be valuable for 
    */
   private parseWeeklySummaryResponse(content: string): WeeklyReportSummary {
     try {
+      console.log('🔍 Parsing AI response...');
+      
       // Try to extract JSON from the response
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
@@ -262,17 +327,78 @@ Please provide a comprehensive, professional summary that would be valuable for 
       }
 
       const summaryData = JSON.parse(jsonMatch[0]);
+      console.log('📊 Parsed AI data:', {
+        hasKeyAchievements: !!summaryData.keyAchievements,
+        keyAchievementsCount: summaryData.keyAchievements?.length || 0,
+        hasIndividualHighlights: !!summaryData.individualHighlights,
+        individualHighlightsCount: Object.keys(summaryData.individualHighlights || {}).length,
+        hasTeamOverview: !!summaryData.teamOverview
+      });
       
-      return new WeeklyReportSummary(
+      // Transform the AI response to match the expected WeeklyReportSummary structure
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const memberSummaries: Record<string, any> = {};
+      
+      // Process individual highlights into member summaries
+      if (summaryData.individualHighlights) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        Object.entries(summaryData.individualHighlights).forEach(([memberName, memberData]: [string, any]) => {
+          // Ensure we have meaningful content for each field
+          const achievements = memberData.achievements || [];
+          const focus = memberData.focus || 'No progress information available';
+          const nextWeekFocus = memberData.nextWeekFocus || 'No focus areas defined';
+          
+          // If we have achievements, make sure they're detailed
+          const detailedAchievements = achievements.length > 0 
+            ? achievements 
+            : ['No specific accomplishments recorded this week'];
+            
+          // If we have focus information, make it more detailed
+          const detailedFocus = focus && focus !== 'No progress information available' 
+            ? focus 
+            : 'Work progress details not available from standup entries';
+            
+          // If we have next week focus, make it more specific
+          const detailedNextWeekFocus = nextWeekFocus && nextWeekFocus !== 'No focus areas defined'
+            ? nextWeekFocus
+            : 'Focus areas will be determined based on upcoming priorities';
+          
+          memberSummaries[memberName] = {
+            role: memberData.role || 'Team Member',
+            keyContributions: detailedAchievements,
+            progress: detailedFocus,
+            concerns: [], // We'll populate this from blockers analysis
+            nextWeekFocus: detailedNextWeekFocus
+          };
+        });
+      }
+      
+      // Create a more comprehensive team insights section
+      const teamInsights = summaryData.teamOverview || 'No team overview provided';
+      const enhancedTeamInsights = teamInsights.length > 50 
+        ? teamInsights 
+        : `Team Overview: ${teamInsights}. This week the team focused on core development activities and collaboration.`;
+      
+      const result = new WeeklyReportSummary(
         summaryData.keyAchievements || [],
-        summaryData.ongoingWork || [],
+        [], // ongoingWork - not provided by AI
         summaryData.challenges || [],
-        summaryData.teamOverview || 'No team overview provided',
+        enhancedTeamInsights,
         summaryData.nextWeekFocus || [],
-        summaryData.individualHighlights || {}
+        memberSummaries
       );
+      
+      console.log('✅ Final summary structure:', {
+        keyAccomplishmentsCount: result.keyAccomplishments.length,
+        blockersCount: result.blockers.length,
+        memberSummariesCount: Object.keys(result.memberSummaries).length,
+        teamInsightsLength: result.teamInsights.length
+      });
+      
+      return result;
     } catch (error) {
       console.error('Failed to parse AI response:', error);
+      console.log('📄 Raw content for debugging:', content.substring(0, 1000));
       
       // Fallback: create a basic summary from the raw content
       return new WeeklyReportSummary(

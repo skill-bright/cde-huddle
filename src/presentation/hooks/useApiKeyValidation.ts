@@ -76,7 +76,7 @@ export function useApiKeyValidation(autoValidate = false) {
     if (shouldValidate) {
       validateApiKeySetup();
     }
-  }, [autoValidate]); // Only depend on autoValidate
+  }, [autoValidate, lastValidation, validateApiKeySetup]);
 
   /**
    * Show a specific API key error

@@ -24,6 +24,8 @@ interface WeeklyReportProps {
   onViewStoredReport: (report: StoredWeeklyReport) => void;
   setWeeklyReport: (report: WeeklyReportType | null) => void;
   onGenerateReportManually?: () => Promise<void>;
+  onGenerateLastWeekReportManually?: () => Promise<void>;
+  onRefreshStoredReports?: () => Promise<void>;
   toGenerateReportManually?: boolean; 
   generatingReport?: boolean;
 }
@@ -40,6 +42,8 @@ export function WeeklyReport({
   onViewStoredReport,
   setWeeklyReport,
   onGenerateReportManually,
+  onGenerateLastWeekReportManually,
+  onRefreshStoredReports,
   toGenerateReportManually = false,
   generatingReport = false
 }: WeeklyReportProps) {
@@ -57,6 +61,17 @@ export function WeeklyReport({
       'Generate Report'
     );
   }, [onGenerateReportManually, showPasskeyModal]);
+
+  const handleGenerateLastWeekWithPasskey = useCallback(() => {
+    if (!onGenerateLastWeekReportManually) return;
+    
+    showPasskeyModal(
+      onGenerateLastWeekReportManually,
+      'Generate Last Week Report',
+      'Please enter the passkey to generate last week\'s report. This action will create a new weekly report with AI analysis for the previous week.',
+      'Generate Last Week Report'
+    );
+  }, [onGenerateLastWeekReportManually, showPasskeyModal]);
 
   const handleRegenerateSummary = useCallback(async () => {
     if (!report) return;
@@ -78,12 +93,18 @@ export function WeeklyReport({
       setWeeklyReport(updatedReport);
       console.log('✅ Successfully regenerated and updated AI summary');
       
+      // Refresh the stored reports list to reflect the updated data
+      if (onRefreshStoredReports) {
+        await onRefreshStoredReports();
+        console.log('🔄 Stored reports list refreshed');
+      }
+      
     } catch (error) {
       console.error('❌ Failed to regenerate AI summary:', error);
     } finally {
       setRegeneratingSummary(false);
     }
-  }, [report, regenerateWeeklySummary, setWeeklyReport]);
+  }, [report, regenerateWeeklySummary, setWeeklyReport, onRefreshStoredReports]);
 
   const handleExportToCSV = useCallback(() => {
     if (!report) return;
@@ -186,28 +207,53 @@ export function WeeklyReport({
           <p className="section-subtitle">AI-powered insights from your team's standup data</p>
         </div>
         {toGenerateReportManually && (
-          <motion.div
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <button
-              onClick={handleGenerateWithPasskey}
-              disabled={generatingReport}
-              className="btn-modern btn-primary flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+          <div className="flex items-center gap-3">
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
             >
-              {generatingReport ? (
-                <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                  <span>Generating...</span>
-                </>
-              ) : (
-                <>
-                  <FileText className="w-5 h-5" />
-                  <span>Generate This Week</span>
-                </>
-              )}
-            </button>
-          </motion.div>
+              <button
+                onClick={handleGenerateWithPasskey}
+                disabled={generatingReport}
+                className="btn-modern btn-primary flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {generatingReport ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    <span>Generating...</span>
+                  </>
+                ) : (
+                  <>
+                    <FileText className="w-5 h-5" />
+                    <span>Generate This Week</span>
+                  </>
+                )}
+              </button>
+            </motion.div>
+            
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <button
+                onClick={handleGenerateLastWeekWithPasskey}
+                disabled={generatingReport}
+                className="btn-modern btn-secondary flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {generatingReport ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    <span>Generating...</span>
+                  </>
+                ) : (
+                  <>
+                    <FileText className="w-5 h-5" />
+                    <span>Generate Last Week</span>
+                  </>
+                )}
+              </button>
+            </motion.div>
+          </div>
         )}
       </motion.div>
 
@@ -242,6 +288,7 @@ export function WeeklyReport({
           loading={storedReportsLoading}
           onViewReport={onViewStoredReport}
           onGenerateReportManually={onGenerateReportManually}
+          onGenerateLastWeekReportManually={onGenerateLastWeekReportManually}
           generatingReport={generatingReport}
         />
       </motion.div>

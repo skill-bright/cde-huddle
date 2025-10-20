@@ -44,9 +44,11 @@ export default function StandupDashboard({ initialTab = 'daily' }: StandupDashbo
     weeklyReportError,
     setWeeklyReport,
     generateCurrentWeekReportManually,
+    generateLastWeekReportManually,
     getPreviousWeekDates,
     storedWeeklyReports,
     storedReportsLoading,
+    fetchStoredWeeklyReports,
   } = useStandupData();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -134,6 +136,17 @@ export default function StandupDashboard({ initialTab = 'daily' }: StandupDashbo
     }
   }, [generateCurrentWeekReportManually]);
 
+  const handleGenerateLastWeekReportManually = useCallback(async () => {
+    setGeneratingReport(true);
+    try {
+      await generateLastWeekReportManually();
+    } catch (error) {
+      console.error('Failed to generate last week report:', error);
+    } finally {
+      setGeneratingReport(false);
+    }
+  }, [generateLastWeekReportManually]);
+
   const today = getTodayFormatted();
 
   if (loading) {
@@ -194,6 +207,8 @@ export default function StandupDashboard({ initialTab = 'daily' }: StandupDashbo
                   storedReportsLoading={storedReportsLoading}
                   onViewStoredReport={handleViewStoredReport}
                   onGenerateReportManually={handleGenerateReportManually}
+                  onGenerateLastWeekReportManually={handleGenerateLastWeekReportManually}
+                  onRefreshStoredReports={fetchStoredWeeklyReports}
                   toGenerateReportManually={true}
                   generatingReport={generatingReport}
                 />

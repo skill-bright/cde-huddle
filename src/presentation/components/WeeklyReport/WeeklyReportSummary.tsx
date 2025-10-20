@@ -263,7 +263,7 @@ export function WeeklyReportSummary({ summary, onRegenerate, regenerating }: Wee
                       <Clock className="w-4 h-4 text-blue-600 dark:text-blue-400 mr-2" />
                       Progress
                     </h4>
-                    <div className="text-sm text-gray-700 dark:text-blue-900 bg-blue-50 dark:bg-blue-100/20 p-3 rounded-md">
+                    <div className="text-sm text-gray-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-100/20 p-3 rounded-md">
                       {memberSummary.progress ? renderHtmlContent(memberSummary.progress) : 'No progress information available'}
                     </div>
                   </div>

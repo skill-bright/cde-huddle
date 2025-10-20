@@ -8,11 +8,12 @@ interface StoredWeeklyReportsProps {
   loading: boolean;
   onViewReport: (report: StoredWeeklyReport) => void;
   onGenerateReportManually?: () => Promise<void>;
+  onGenerateLastWeekReportManually?: () => Promise<void>;
   toGenerateReportManually?: boolean;
   generatingReport?: boolean;
 }
 
-export function StoredWeeklyReports({ reports, loading, onViewReport, onGenerateReportManually, toGenerateReportManually = false, generatingReport = false }: StoredWeeklyReportsProps) {
+export function StoredWeeklyReports({ reports, loading, onViewReport, onGenerateReportManually, onGenerateLastWeekReportManually, toGenerateReportManually = false, generatingReport = false }: StoredWeeklyReportsProps) {
   const { isModalOpen, modalConfig, showPasskeyModal, handlePasskeyConfirm, handlePasskeyCancel } = usePasskey();
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -39,6 +40,17 @@ export function StoredWeeklyReports({ reports, loading, onViewReport, onGenerate
       'Generate Weekly Report',
       'Please enter the passkey to generate this week\'s report. This action will create a new weekly report with AI analysis.',
       'Generate Report'
+    );
+  };
+
+  const handleGenerateLastWeekWithPasskey = () => {
+    if (!onGenerateLastWeekReportManually) return;
+    
+    showPasskeyModal(
+      onGenerateLastWeekReportManually,
+      'Generate Last Week Report',
+      'Please enter the passkey to generate last week\'s report. This action will create a new weekly report with AI analysis for the previous week.',
+      'Generate Last Week Report'
     );
   };
 
@@ -122,9 +134,9 @@ export function StoredWeeklyReports({ reports, loading, onViewReport, onGenerate
             </div>
           </div>
           
-          {/* Manual generation button for when there are no reports */}
+          {/* Manual generation buttons for when there are no reports */}
           {toGenerateReportManually && onGenerateReportManually && (
-            <div className="flex justify-center mb-4">
+            <div className="flex justify-center gap-3 mb-4">
               <button
                 onClick={handleGenerateWithPasskey}
                 disabled={generatingReport}
@@ -138,10 +150,30 @@ export function StoredWeeklyReports({ reports, loading, onViewReport, onGenerate
                 ) : (
                   <>
                     <FileText className="w-4 h-4" />
-                    <span>Generate This Week's Report</span>
+                    <span>Generate This Week</span>
                   </>
                 )}
               </button>
+              
+              {onGenerateLastWeekReportManually && (
+                <button
+                  onClick={handleGenerateLastWeekWithPasskey}
+                  disabled={generatingReport}
+                  className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-gray-600 dark:bg-gray-500 border border-gray-600 dark:border-gray-500 rounded-xl hover:bg-gray-700 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
+                >
+                  {generatingReport ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span>Generating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="w-4 h-4" />
+                      <span>Generate Last Week</span>
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -158,23 +190,45 @@ export function StoredWeeklyReports({ reports, loading, onViewReport, onGenerate
             {reports.length} report{reports.length !== 1 ? 's' : ''}
           </div>
           {toGenerateReportManually && (
-            <button
-              onClick={handleGenerateWithPasskey}
-              disabled={generatingReport}
-              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 border border-blue-600 dark:border-blue-500 rounded-xl hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
-            >
-              {generatingReport ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  <span>Generating...</span>
-                </>
-              ) : (
-                <>
-                  <FileText className="w-4 h-4" />
-                  <span>Generate This Week</span>
-                </>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleGenerateWithPasskey}
+                disabled={generatingReport}
+                className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 border border-blue-600 dark:border-blue-500 rounded-xl hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
+              >
+                {generatingReport ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Generating...</span>
+                  </>
+                ) : (
+                  <>
+                    <FileText className="w-4 h-4" />
+                    <span>Generate This Week</span>
+                  </>
+                )}
+              </button>
+              
+              {onGenerateLastWeekReportManually && (
+                <button
+                  onClick={handleGenerateLastWeekWithPasskey}
+                  disabled={generatingReport}
+                  className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-white bg-gray-600 dark:bg-gray-500 border border-gray-600 dark:border-gray-500 rounded-xl hover:bg-gray-700 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
+                >
+                  {generatingReport ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span>Generating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="w-4 h-4" />
+                      <span>Generate Last Week</span>
+                    </>
+                  )}
+                </button>
               )}
-            </button>
+            </div>
           )}
         </div>
       </div>

@@ -195,6 +195,49 @@ export function useStandupData() {
     };
   }, []);
 
+  const generateLastWeekReportManually = useCallback(async () => {
+    console.log('🚀 generateLastWeekReportManually called!');
+    try {
+      const { weekStart, weekEnd } = getPreviousWeekDates();
+      
+      console.log(`📅 Generating manual weekly report for last week: ${weekStart} to ${weekEnd}`);
+      
+      // Generate the report
+      const report = await generateWeeklyReportUseCase.execute(weekStart, weekEnd, true);
+      console.log('Report generated successfully:', report);
+      
+      // Save the report to the database
+      await repository.saveWeeklyReport(report);
+      console.log('Report saved to database successfully');
+      
+      // Update the UI state
+      setWeeklyReport(report);
+      
+      // Refresh the stored reports list
+      await fetchStoredWeeklyReports();
+      console.log('Stored reports list refreshed');
+      
+      // Show success toast
+      showSuccess(
+        'Last Week Report Generated',
+        `Your weekly report for ${weekStart} to ${weekEnd} has been successfully generated and saved.`,
+        4000
+      );
+    } catch (error) {
+      console.error('Failed to generate and save last week report:', error);
+      
+      // Show error toast with specific message
+      const errorMessage = error instanceof Error ? error.message : 'Failed to generate last week report';
+      showError(
+        'Report Generation Failed',
+        errorMessage,
+        8000
+      );
+      
+      throw error;
+    }
+  }, [generateWeeklyReportUseCase, repository, setWeeklyReport, fetchStoredWeeklyReports, getPreviousWeekDates, showError, showSuccess]);
+
   // Refresh function
   const refreshData = useCallback(async () => {
     setLoading(true);
@@ -258,6 +301,7 @@ export function useStandupData() {
     setWeeklyReport,
     generateWeeklyReport,
     generateCurrentWeekReportManually,
+    generateLastWeekReportManually,
     getPreviousWeekDates,
     
     // Stored weekly reports

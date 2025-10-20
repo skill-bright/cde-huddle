@@ -3,6 +3,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { TeamMember } from '@/domain/entities/TeamMember';
 import { WeeklyReport } from '@/domain/entities/WeeklyReport';
 import { SecureAnthropicAIService } from '@/infrastructure/services/SecureAnthropicAIService';
+import { SupabaseStandupRepository } from '@/infrastructure/repositories/SupabaseStandupRepository';
 import { useToast } from './useToast';
 
 /**
@@ -14,6 +15,7 @@ export function useAIGeneration() {
   const [error, setError] = useState<string | null>(null);
   
   const aiService = useMemo(() => new SecureAnthropicAIService(), []);
+  const repository = useMemo(() => new SupabaseStandupRepository(), []);
   const { showError, showSuccess } = useToast();
 
   /**
@@ -88,12 +90,26 @@ export function useAIGeneration() {
       setGenerating(true);
       setError(null);
       
+      console.log('🔄 Regenerating AI summary for report:', report.weekStart, 'to', report.weekEnd);
+      
       const newSummary = await aiService.regenerateWeeklySummary(report);
+      
+      // Create a new report with the regenerated summary
+      const updatedReport = new WeeklyReport(
+        report.weekStart,
+        report.weekEnd,
+        report.entries,
+        newSummary
+      );
+      
+      // Save the updated report to the database
+      await repository.saveWeeklyReport(updatedReport);
+      console.log('💾 Regenerated summary saved to database');
       
       // Show success toast
       showSuccess(
         'AI Summary Regenerated',
-        'The weekly report summary has been successfully regenerated.',
+        'The weekly report summary has been successfully regenerated and saved.',
         4000
       );
       
@@ -113,7 +129,7 @@ export function useAIGeneration() {
     } finally {
       setGenerating(false);
     }
-  }, [aiService, showError, showSuccess]);
+  }, [aiService, repository, showError, showSuccess]);
 
   /**
    * Clear any existing errors
