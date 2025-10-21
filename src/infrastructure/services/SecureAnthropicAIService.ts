@@ -290,10 +290,26 @@ Please provide a comprehensive, professional summary that would be valuable for 
     
     // Filter previous entries to only include entries for the selected team member
     const memberPreviousEntries = previousEntries?.filter(member => member.name === memberName) || [];
-    const previousEntriesText = memberPreviousEntries.length > 0 
-      ? `\n\nYour previous entries for context:\n${memberPreviousEntries.map(member => 
+    
+    // For yesterday field, provide more specific context about what "yesterday" means
+    let previousEntriesText = '';
+    if (memberPreviousEntries.length > 0) {
+      if (fieldType === 'yesterday') {
+        // For yesterday field, provide context about what was planned vs accomplished
+        previousEntriesText = `\n\nYour recent work context to help generate yesterday's accomplishments:\n${memberPreviousEntries.map(member => 
+          `- Previous Today plans: ${member.today || 'No previous plans'}\n- Previous Yesterday work: ${member.yesterday || 'No previous work'}\n- Previous Blockers: ${member.blockers || 'None'}`
+        ).join('\n\n')}`;
+      } else {
+        // For other fields, use standard context
+        previousEntriesText = `\n\nYour previous entries for context:\n${memberPreviousEntries.map(member => 
           `- Yesterday: ${member.yesterday || 'No update'}\n- Today: ${member.today || 'No update'}\n- Blockers: ${member.blockers || 'None'}`
-        ).join('\n\n')}`
+        ).join('\n\n')}`;
+      }
+    }
+
+    // Add specific guidance for yesterday field
+    const yesterdayGuidance = fieldType === 'yesterday' 
+      ? `\n\nIMPORTANT: For the "yesterday" field, generate realistic accomplishments based on what they likely worked on yesterday. Consider their role, previous work patterns, and any planned tasks from their previous updates.`
       : '';
 
     return `You are an AI assistant helping a team member write their standup update.
@@ -307,7 +323,7 @@ Please provide a comprehensive, professional summary that would be valuable for 
         - Professional and concise
         - Relevant to their role as a ${memberRole}
         - Realistic and specific (not generic)
-        - Consistent with their previous work patterns${contextText}${previousEntriesText}
+        - Consistent with their previous work patterns${contextText}${previousEntriesText}${yesterdayGuidance}
 
         Generate only the standup content, no additional formatting or explanations.
         `;

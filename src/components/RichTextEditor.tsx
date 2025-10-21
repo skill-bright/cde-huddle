@@ -14,14 +14,6 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
   
   // Check if dark mode is active
   const isDarkMode = document.documentElement.classList.contains('dark');
-  
-  console.log('RichTextEditor props:', { 
-    hasApiKey: !!import.meta.env.VITE_TINYMCE_API_KEY, 
-    apiKeyLength: import.meta.env.VITE_TINYMCE_API_KEY?.length, 
-    minHeight, 
-    placeholder,
-    isDarkMode 
-  });
 
   // Use hooks for editor state management
   const [editorError, setEditorError] = useState(false);
@@ -79,7 +71,6 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     setup: (editor: any) => {
       editor.on('init', () => {
-        console.log('TinyMCE editor initialized successfully');
         setEditorInitialized(true);
       });
     },
@@ -120,11 +111,7 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
               value={value}
               onEditorChange={handleEditorChange}
               onInit={() => {
-                console.log('TinyMCE editor initialized successfully');
                 setEditorInitialized(true);
-              }}
-              onLoadContent={() => {
-                console.log('TinyMCE content loaded');
               }}
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               onError={(error: any) => {

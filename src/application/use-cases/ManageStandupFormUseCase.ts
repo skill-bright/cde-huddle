@@ -90,11 +90,18 @@ export class ManageStandupFormUseCase {
   ): Promise<string> {
     const targetDate = fieldType === 'yesterday' ? this.dateUtils.getPreviousBusinessDay() : undefined;
     
+    // Create context string with date information for better AI understanding
+    let context = '';
+    if (fieldType === 'yesterday' && targetDate) {
+      const today = this.dateUtils.getVancouverDate();
+      context = `Today is ${today}. Yesterday was ${targetDate} (previous business day). Generate realistic accomplishments for what they likely worked on yesterday.`;
+    }
+    
     return await this.aiGeneration.generateFieldContent(
       memberName,
       memberRole,
       fieldType,
-      targetDate,
+      context,
       previousEntries
     );
   }
