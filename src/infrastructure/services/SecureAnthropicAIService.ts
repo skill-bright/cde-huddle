@@ -16,6 +16,12 @@ export class SecureAnthropicAIService implements AIService {
     if (!this.supabaseUrl) {
       throw new Error('Missing VITE_SUPABASE_URL environment variable');
     }
+    
+    // Warn if using localhost - edge functions are only available on production Supabase URL
+    if (this.supabaseUrl.includes('localhost') || this.supabaseUrl.includes('127.0.0.1')) {
+      console.warn('⚠️ WARNING: Using localhost Supabase URL. Edge functions are only available on production Supabase URLs.');
+      console.warn('⚠️ Please set VITE_SUPABASE_URL to your production Supabase URL (e.g., https://your-project.supabase.co)');
+    }
   }
 
   /**
@@ -34,7 +40,7 @@ export class SecureAnthropicAIService implements AIService {
       console.log('📝 AI Prompt length:', prompt.length);
       
       const response = await this.callAnthropicAPI({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'claude-3-opus-20240229',
         max_tokens: 8000,
         messages: [
           {
@@ -81,7 +87,7 @@ export class SecureAnthropicAIService implements AIService {
       const prompt = this.buildFieldContentPrompt(memberName, memberRole, fieldType, context, previousEntries);
 
       const response = await this.callAnthropicAPI({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'claude-3-opus-20240229',
         max_tokens: 500,
         messages: [
           {
@@ -139,7 +145,11 @@ export class SecureAnthropicAIService implements AIService {
     const maxRetries = 2;
     const retryDelay = 2000; // 2 seconds
     
-    const response = await fetch(`${this.supabaseUrl}/functions/v1/anthropic-proxy`, {
+    const functionUrl = `${this.supabaseUrl}/functions/v1/anthropic-proxy`;
+    console.log('🔗 Calling Edge Function:', functionUrl);
+    console.log('🔗 Supabase URL:', this.supabaseUrl);
+    
+    const response = await fetch(functionUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -151,13 +161,28 @@ export class SecureAnthropicAIService implements AIService {
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       
+      // Log detailed error information for debugging
+      console.error('❌ Edge Function Error:', {
+        status: response.status,
+        statusText: response.statusText,
+        url: functionUrl,
+        supabaseUrl: this.supabaseUrl,
+        errorData: errorData
+      });
+      
       // Provide more specific error messages
       if (response.status === 401) {
         throw new Error('API key not configured. Please set up your Anthropic API key in the database.');
       } else if (response.status === 403) {
         throw new Error('Invalid API key. Please check your Anthropic API key configuration.');
       } else if (response.status === 404) {
-        throw new Error('Edge Function not found. Please deploy the anthropic-proxy function.');
+        // Check if this is an Anthropic API error (model not found) or edge function error
+        const errorMessage = errorData.error?.message || (typeof errorData.error === 'string' ? errorData.error : '') || '';
+        if (errorMessage.includes('model:') || errorData.error?.type === 'not_found_error') {
+          throw new Error(`Anthropic model not found: "${errorMessage}". The model name may be incorrect. Please check Anthropic's API documentation for valid model names (e.g., claude-3-opus-20240229, claude-3-sonnet-20240229).`);
+        } else {
+          throw new Error(`Edge Function not found at ${functionUrl}. Please verify:\n1. The function is deployed: supabase functions list\n2. VITE_SUPABASE_URL is correct: ${this.supabaseUrl}\n3. You're using the production URL, not localhost`);
+        }
       } else if (response.status === 429) {
         // Retry 429 errors (rate limit) up to maxRetries times
         if (retryCount < maxRetries) {

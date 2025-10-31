@@ -44,6 +44,13 @@ serve(async (req) => {
 
     // Get the request body
     const requestBody = await req.json()
+    
+    // Log the model being used for debugging
+    console.log('📝 Anthropic API Request:', {
+      model: requestBody.model,
+      max_tokens: requestBody.max_tokens,
+      messageCount: requestBody.messages?.length || 0
+    })
 
     // Forward the request to Anthropic API
     const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
@@ -57,6 +64,15 @@ serve(async (req) => {
     })
 
     const responseData = await anthropicResponse.json()
+    
+    // Log error responses for debugging
+    if (!anthropicResponse.ok) {
+      console.error('❌ Anthropic API Error:', {
+        status: anthropicResponse.status,
+        statusText: anthropicResponse.statusText,
+        error: responseData
+      })
+    }
 
     // Return the response from Anthropic
     return new Response(
